@@ -8,7 +8,7 @@
 
 | 功能               | 位置                             | 说明                                                         |
 | ------------------ | -------------------------------- | ------------------------------------------------------------ |
-| API 余额悬浮窗     | 输入框右侧工具条（与输入框持平） | 毛玻璃卡片，实时显示 DeepSeek 账户余额 + 当前会话 token 用量 |
+| API 余额悬浮窗     | 输入框右侧工具条（与输入框持平） | 毛玻璃卡片，实时显示账户余额 + 当前会话 token 用量           |
 | Agent 轨迹像素动画 | 输入框上方（30×8 点阵条）        | 将 Agent 执行步骤映射为流动像素：`think → #00ff88`、`tool → #ff8800`、`output → #4488ff` |
 
 两个功能均为纯 CSS 实现（CSS Modules），跟随 DSH 明暗主题（通过 `--dsw-alias-*` token），无额外运行时依赖（仅需官方 Harness 包 + React）。
@@ -19,7 +19,7 @@
 
 - DSH ≥ 0.1.0-rc.6（当前为 rc 阶段，随 DSH 升级可能需同步更新插件）
 - Node.js ≥ 22.19
-- 已配置 `DEEPSEEK_API_KEY`（余额功能需要）
+- 余额提供方 API Key（默认读取 `DEEPSEEK_API_KEY`；可通过插件配置 `baseUrl` / `apiKeyEnv` 接入兼容端点）
 
 ## 安装
 
@@ -68,7 +68,9 @@ dsh plugin --profile web add link:<绝对路径>/dsh-ambient-ui
 
 ### 余额显示"不可用"
 
-检查环境变量 `DEEPSEEK_API_KEY` 是否已正确配置。配置后悬浮窗会自动恢复显示。
+- 未配置 API Key：默认读取 `DEEPSEEK_API_KEY`，配置后悬浮窗会自动恢复显示。
+- 使用了 OpenAI、Moonshot/Kimi 等提供方：其原生余额接口与 DeepSeek 格式不同，无法直接查询，属正常现象；token 用量与像素轨迹动画不受影响。
+- 若你的网关/中转站提供 DeepSeek 兼容的 `/user/balance` 接口，可通过插件配置 `baseUrl` / `apiKeyEnv` 接入。
 
 ### Token 显示"不可用"
 
