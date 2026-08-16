@@ -113,4 +113,3 @@ cordis.patch.yml          # bundle patch（dsh plugin 安装用）
 ## License
 
 MIT. `shared/` 目录下的构建预设派生自 [DeepSeek Harness 官方仓库](https://github.com/deepseek-ai/deepseek-harness)（MIT）。
-```
