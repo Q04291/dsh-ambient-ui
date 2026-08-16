@@ -2,8 +2,8 @@
 
 Ambient UI for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) Web:
 
-- **API 余额悬浮窗** — a glassmorphism chip pinned to the bottom-right of the app frame showing the DeepSeek account balance and the current session's token pressure. Opacity and blur are adjustable from the Harness Settings panel.
-- **Agent 轨迹像素动画** — a 30×8 dot-matrix strip at the bottom of the conversation area that maps agent steps to flowing pixels: `think → #00ff88`, `tool → #ff8800`, `output → #4488ff`.
+- **API 余额悬浮窗** — a glassmorphism chip in the composer tool row (level with the input box) showing the DeepSeek account balance and the current session's token pressure. Opacity and blur are adjustable from the Harness Settings panel.
+- **Agent 轨迹像素动画** — a 30×8 dot-matrix strip above the input box that maps agent steps to flowing pixels: `think → #00ff88`, `tool → #ff8800`, `output → #4488ff`.
 
 Both features are pure-CSS (CSS Modules), follow the Harness light/dark theme (via `--dsw-alias-*` tokens), and have zero runtime dependencies beyond the official Harness packages + React.
 
@@ -55,6 +55,7 @@ dsh plugin add dsh-ambient-ui
 ```sh
 pnpm install
 pnpm run typecheck   # tsc -b
+pnpm test            # vitest（配置钳制 / 路由唯一性 / 配置读写）
 pnpm run build       # tsc -b && tsdown（生成 lib/ 与 lib/client.js）
 ```
 
@@ -64,7 +65,7 @@ pnpm run build       # tsc -b && tsdown（生成 lib/ 与 lib/client.js）
 src/index.ts            # Host 半区：设置项 + /api/ambient/* 路由
 src/config.ts           # 共享配置类型与默认值
 src/service.ts          # 余额查询（credentials + 官方 Get User Balance）+ token-meter 读取
-src/routes.ts           # /api/ambient/balance, /api/ambient/tokens
+src/routes.ts           # /api/ambient/config, /balance, /tokens, /debug
 src/client/index.ts     # Client 半区：注册 shell.overlay 与 composer.dock 插槽
 src/BalanceWidget.tsx   # 右下角毛玻璃余额/用量悬浮窗
 src/TrailAnimation.tsx  # 30×8 像素轨迹动画
@@ -78,10 +79,10 @@ shared/                 # 官方 DSH client bundle 构建预设（MIT）
 | 你的需求 | 真实实现 |
 | --- | --- |
 | `@deepseek-harness/core` / `definePlugin` | `@deepseek-ai/cordis` 插件：`export const name / inject / apply(ctx)` |
-| `useHarness` / `usePluginState` | 官方插槽标准 kit：`useSession` / `useSessions` + `ctx.settingsScope.bind()` |
+| `useHarness` / `usePluginState` | 官方插槽标准 kit：`useSession` / `useSessions` + 自建 `useAmbientConfig()` 共享 store |
 | `client.api.get('/v1/usage')` | Host 半区路由 `GET /api/ambient/balance`、`GET /api/ambient/tokens?session=…`（同源 JSON，凭据不出 Host） |
 | `llm:call` 事件 | 余额每 30s 轮询 + visibilitychange 刷新；轨迹直接订阅会话快照（`useSession`）差分出 think/tool/output |
-| `usePluginConfig` 配置 | Host 半区 `installSettingsSection` 注册 `ambient` 命名空间，Client 用 `settingsScope.bind()` 消费 |
+| `usePluginConfig` 配置 | 自建路由 `GET/PUT /api/ambient/config`（见下方"配置读写原理"），客户端共享 store 消费 |
 
 ## 配置读写原理（重要）
 
@@ -99,10 +100,7 @@ Host 侧仍调用 `installSettingsSection` 注册命名空间，等官方放开�
 ## 常见问题
 
 
-- **设置面板一直显示“设置加载中…”**：插件已内置容错解码（normalizeAmbientSettings），
-  只要 Host 半区注册了 ambient 命名空间就会正常显示。若仍卡住，按 F12 看控制台
-  `[dsh-ambient-ui] settings:` 日志：`status: "unavailable"` 说明 Host 半区没加载（重启 dsh web）；
-  `status: "loading"` 说明设置 RPC 失败（检查 127.0.0.1 访问与凭据）。
+- 配置通过自建路由 `GET/PUT /api/ambient/config` 读写，持久化到 `~/.dsh/settings.yaml` 的 `ambient:` 段；若设置行不显示控件，先看终端 `[dsh-ambient-ui]` 日志与 `GET /api/ambient/config` 是否返回 JSON。
 - 余额/Token 悬浮窗停靠在**输入框同一行的工具条**（conversation.input.right），与输入框持平；像素轨迹位于输入框上方（conversation.input.dock），输入框沉底。
 - **弹窗毛玻璃（glass）**：通过覆盖 `--dsw-mask-blur` / `--dsw-alias-bg-mask-1` 变量 + 稳定选择器
   （`[role="dialog"][aria-modal="true"]` / `[role="menu"]` / `[role="tooltip"]`）给设置面板、Modal、菜单、提示统一套用

@@ -19,7 +19,8 @@
   "scripts": {
     "build": "tsc -b && tsdown",
     "typecheck": "tsc -b --pretty false",
-    "prepare": "tsdown"
+    "prepare": "tsdown",
+    "test": "vitest run"
   },
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
@@ -103,7 +104,8 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tsdown": "^0.22.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
   },
   "repository": {
     "type": "git",

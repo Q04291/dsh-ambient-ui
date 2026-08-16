@@ -1,6 +1,9 @@
 # dependencies
 node_modules/
 
+# build artifacts
+*.tsbuildinfo
+
 # logs & OS junk
 *.log
 .DS_Store
