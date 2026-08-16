@@ -25,7 +25,7 @@ dsh plugin --profile web add link:<绝对路径>/dsh-ambient-ui
 ### 从 Git
 
 ```sh
-dsh plugin --profile web add https://github.com/<your-name>/dsh-ambient-ui
+dsh plugin --profile web add https://github.com/Q04291/dsh-ambient-ui
 ```
 
 ### 从 npm（发布后）
