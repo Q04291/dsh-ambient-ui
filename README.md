@@ -2,7 +2,9 @@
 
 > Ambient UI components for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) Web — 为 DSH 界面添加毛玻璃余额悬浮窗与 Agent 轨迹像素动画。
 
-<!-- 建议补充截图：![demo](./assets/demo.png) -->
+| 毛玻璃余额悬浮窗                                 | Agent 轨迹像素动画                              |
+| ------------------------------------------------ | ----------------------------------------------- |
+| ![毛玻璃余额悬浮窗](./assets/balance-widget.png) | ![Agent 轨迹像素动画](./assets/agent-trail.png) |
 
 ## 功能一览
 
