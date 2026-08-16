@@ -1,0 +1,10 @@
+# dependencies
+node_modules/
+
+# logs & OS junk
+*.log
+.DS_Store
+Thumbs.db
+
+# lib/ IS committed on purpose: DSH plugins load the built client bundle,
+# so git-installed users get a working plugin without running a build.

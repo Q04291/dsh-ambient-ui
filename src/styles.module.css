@@ -1,0 +1,229 @@
+/* dsh-ambient-ui styles (pure CSS, CSS Modules).
+ *
+ * Theme adaptation: colors ride DSH's alias tokens (--dsw-alias-*) so they
+ * follow the harness light/dark theme and brand overrides automatically;
+ * the var() fallbacks keep the widget readable when a token is absent.
+ * The blur/opacity values are injected inline from settings so the user can
+ * tune them from the Settings panel without a stylesheet rebuild.
+ */
+
+.balanceWidget {
+  /* Inside the composer tool row: inline, level with the input box. */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.balanceCard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.28));
+  border-radius: 16px;
+  background: var(--dsw-alias-bg-overlay, rgba(255, 255, 255, 0.62));
+  color: var(--dsw-alias-label-primary, #1c1e26);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.balanceText {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.tokenText {
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-secondary, #565c6a);
+}
+
+.sep {
+  width: 1px;
+  height: 12px;
+  background: var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.3));
+}
+
+.dot,
+.dotOk {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.dot {
+  background: var(--dsw-alias-danger, #e5484d);
+}
+
+.dotOk {
+  background: var(--dsw-alias-success, #30a46c);
+  box-shadow: 0 0 6px rgba(48, 164, 108, 0.7);
+}
+
+.balanceDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 200px;
+  padding: 10px 12px;
+  border: 1px solid var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.25));
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-overlay, rgba(255, 255, 255, 0.72));
+  color: var(--dsw-alias-label-primary, #1c1e26);
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16);
+}
+
+.detailRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rowRight {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dim {
+  opacity: 0.55;
+}
+
+/* ---- pixel trail ---- */
+
+.trail {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 4px 0 2px;
+}
+
+.trailGrid {
+  position: relative;
+}
+
+.cell {
+  position: absolute;
+  border-radius: 2px;
+}
+
+.cellThink {
+  background: #00ff88;
+  box-shadow: 0 0 6px rgba(0, 255, 136, 0.75);
+}
+
+.cellTool {
+  background: #ff8800;
+  box-shadow: 0 0 6px rgba(255, 136, 0, 0.75);
+}
+
+.cellOutput {
+  background: #4488ff;
+  box-shadow: 0 0 6px rgba(68, 136, 255, 0.75);
+}
+
+.cellIdle {
+  background: #8c96aa;
+  box-shadow: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .balanceCard,
+  .balanceDetails {
+    background: var(--dsw-alias-bg-overlay, rgba(23, 25, 31, 0.66));
+    color: var(--dsw-alias-label-primary, #f5f7fb);
+  }
+
+  .tokenText {
+    color: var(--dsw-alias-label-secondary, #949aa8);
+  }
+}
+
+
+/* ---- settings row (General section) ---- */
+
+.settingsRow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.18));
+}
+
+.settingsHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settingsTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary, #1c1e26);
+}
+
+.settingsDesc {
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary, #565c6a);
+}
+
+.settingsFields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--dsw-alias-label-primary, #1c1e26);
+}
+
+.fieldLabel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fieldValue {
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-secondary, #565c6a);
+}
+
+.slider {
+  accent-color: var(--dsw-alias-accent, #4f8cff);
+  width: 100%;
+}
+
+.toggle {
+  accent-color: var(--dsw-alias-accent, #4f8cff);
+  width: 16px;
+  height: 16px;
+}
+
+.settingsPending {
+  font-size: 12px;
+  color: var(--dsw-alias-label-secondary, #565c6a);
+}
+
+.settingsWarn {
+  padding: 8px 10px;
+  border: 1px solid var(--dsw-alias-border-warn, rgba(229, 72, 77, 0.4));
+  border-radius: 8px;
+  background: rgba(229, 72, 77, 0.08);
+  color: var(--dsw-alias-danger, #e5484d);
+  font-size: 12px;
+  line-height: 1.5;
+}

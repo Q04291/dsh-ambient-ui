@@ -1,0 +1,8 @@
+# dsh-ambient-ui bundle patch: inserts its plugin row into the web profile
+# roster. Install with `dsh plugin --profile web add <path-or-git-url>`.
+# The single row mounts BOTH halves: the host side (balance/token API routes
+# + settings section) and the browser side (the floating widget and the pixel
+# trail, via the dsh.client declaration in package.json).
+- insert:
+    - id: ambient
+      name: 'dsh-ambient-ui'
