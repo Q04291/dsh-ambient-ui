@@ -5,7 +5,6 @@
 | 毛玻璃余额悬浮窗                                 | Agent 轨迹像素动画                              |
 | ------------------------------------------------ | ----------------------------------------------- |
 | <img width="1920" height="991" alt="balance-widget" src="https://github.com/user-attachments/assets/1a010c67-d758-491f-8ce8-94878a93567d" /> |<img width="981" height="492" alt="image" src="https://github.com/user-attachments/assets/b3a1d950-2a73-4174-aab0-194c60b674dd" />
- |
 
 ## 功能一览
 
