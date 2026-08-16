@@ -1,6 +1,15 @@
 {
   "name": "dsh-ambient-ui",
   "description": "Ambient UI for DeepSeek Harness Web: a glassmorphism balance/token floating widget plus a pixel-art agent-trail animation.",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "plugin",
+    "glassmorphism",
+    "ui",
+    "agent"
+  ],
   "version": "1.0.0",
   "type": "module",
   "packageManager": "pnpm@10.31.0",
