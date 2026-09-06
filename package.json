@@ -33,6 +33,8 @@
       "types": "./lib/types/client/index.d.ts",
       "default": "./lib/client.js"
     },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./src/*": "./src/*",
     "./package.json": "./package.json"
   },
   "files": [

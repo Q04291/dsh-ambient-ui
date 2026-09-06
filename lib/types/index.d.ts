@@ -1,8 +1,8 @@
 /**
- * dsh-ambient-ui Host half: registers the `ambient` settings section (the
- * Settings panel surface for opacity / blur / speed / toggles) and the
- * balance + token HTTP routes. The browser half (the `./client` entry) mounts
- * the floating widget and the pixel trail.
+ * dsh-ambient-ui Host half: registers the `ambient` settings namespace (the
+ * schema the browser settings scope reads and edits through the native
+ * settings transport) and the balance + token HTTP routes. The browser half
+ * (the `./client` entry) mounts the floating widget and the pixel trail.
  *
  * Install via `dsh plugin --profile web add <path-or-git-url>`; the
  * cordis.patch.yml inserts this plugin row.
@@ -14,12 +14,10 @@ import z from '@deepseek-ai/schemastery';
 import { type AmbientConfig } from './config.ts';
 export { AmbientService } from './service.ts';
 export type { BalanceInfo, BalanceView, TokenView } from './service.ts';
-export { AMBIENT_API_PREFIX, makeAmbientRoutes } from './routes.ts';
-export { AMBIENT_DEFAULTS, normalizeAmbientSettings } from './config.ts';
+export { AMBIENT_DEFAULTS, AMBIENT_SETTINGS_NAMESPACE, normalizeAmbientSettings } from './config.ts';
 export type { AmbientConfig, AmbientSettings } from './config.ts';
-/** Settings namespace of the ambient capability. */
-export declare const AMBIENT_SETTINGS_NAMESPACE = "ambient";
-/** Settings section schema: what the web settings surface edits. */
+export { AMBIENT_API_PREFIX, makeAmbientRoutes } from './routes.ts';
+/** Settings section schema: what the settings scope decodes and edits. */
 export declare const AMBIENT_SETTINGS_SCHEMA: z<Schemastery.ObjectS<{
     opacity: z<number, number>;
     blur: z<number, number>;
@@ -39,6 +37,6 @@ export declare const AMBIENT_SETTINGS_SCHEMA: z<Schemastery.ObjectS<{
 export declare const name = "ambient";
 /** Services required before the ambient service can answer. */
 export declare const inject: string[];
-/** Register the ambient service, its API routes, and its settings section. */
+/** Register the ambient service, its balance/token routes, and its settings namespace. */
 export declare function apply(ctx: Context, config?: AmbientConfig): void;
 //# sourceMappingURL=index.d.ts.map

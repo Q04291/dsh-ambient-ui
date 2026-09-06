@@ -1,7 +1,7 @@
 /**
  * The pixel-art agent trail: a 30x8 dot-matrix strip in the composer dock
- * band (`conversation.composer.dock`). It watches the live conversation
- * snapshot and maps agent steps to flowing pixels:
+ * band (`conversation.input.dock`). It maps the live agent activity to flowing
+ * pixels:
  *
  * - think  -> #00ff88  (reasoning blocks)
  * - tool   -> #ff8800  (running tool calls / tool-call blocks)
@@ -9,6 +9,11 @@
  *
  * Pixels enter at the right edge and scroll left, fading over their lifetime.
  * The scroll rate follows the `speed` setting (1 = slow ... 10 = fast).
+ *
+ * Feed: at 0.1.2-rc.1 the Chat target contributes the running stream
+ * (`useChat` -> `legacy.partial` + `legacy.runningCalls`). When that feed is
+ * unavailable the trail degrades to a session-lifecycle pulse
+ * (`useSession` -> `running`).
  *
  * @module dsh-ambient-ui/TrailAnimation
  */
@@ -18,15 +23,23 @@ import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls the ui-conversation SlotMap merge (this seat) and the
 // ambient SessionStandardProps merge (sessionId / useChat) into this compilation.
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { AmbientChatSnapshot } from './client/feed.ts'
 import type { AmbientSettings } from './config.ts'
 import { useAmbientConfig } from './client/useAmbientConfig.ts'
 import css from './styles.module.css'
+import {
+  EMPTY_TRAIL_COUNTS,
+  countDeltas,
+  deriveChatActivity,
+  streamKind,
+  type TrailActivity,
+  type TrailCounts,
+  type TrailKind,
+} from './trailFeed.ts'
 
 export type TrailAnimationProps = PropsRuntime<'conversation.input.dock'>
 
 /** The agent-step kinds the trail renders. */
-export type TrailKind = 'think' | 'tool' | 'output' | 'idle'
+export type { TrailKind } from './trailFeed.ts'
 
 /** Step-type -> pixel color mapping (per the dsh-ambient-ui spec). */
 export const TRAIL_COLORS: Record<TrailKind, string> = {
@@ -57,27 +70,6 @@ export interface TrailPixel {
   life: number
 }
 
-interface KindCounts {
-  think: number
-  tool: number
-  output: number
-}
-
-/** Count currently-visible agent activity by step kind. */
-function deriveCounts(snapshot: AmbientChatSnapshot): KindCounts {
-  const legacy = snapshot.legacy
-  let think = 0
-  let tool = 0
-  let output = 0
-  for (const block of legacy.partial?.blocks ?? []) {
-    if (block.kind === 'reasoning') think += 1
-    else if (block.kind === 'text') output += 1
-    else if (block.kind === 'tool-call') tool += 1
-  }
-  tool += legacy.runningCalls.length
-  return { think, tool, output }
-}
-
 /** Create one pixel at the right edge on a random row. */
 function createPixel(id: number, kind: TrailKind): TrailPixel {
   return {
@@ -95,44 +87,50 @@ function trim(pixels: readonly TrailPixel[]): TrailPixel[] {
   return [...pixels.slice(pixels.length - MAX_PIXELS)]
 }
 
-
 /**
  * The pixel trail strip.
  * @param props - the composed composer-dock entry props.
  */
 export function TrailAnimation(props: TrailAnimationProps): React.ReactElement | null {
   const { value } = useAmbientConfig()
-  // rc.1 chat feed: the Chat target contributes `useChat` to every session-scope
-  // entry's standard kit; the trail reads the `legacy` projection (in-progress
-  // assistant stream + live tool calls). When the Chat target is not mounted,
-  // the prop is absent and the trail runs on idle drips only.
+  // Chat-target feed (rich: think/tool/output). Absent when the Chat target is
+  // not mounted in this GUI composition.
   const chat = typeof props.useChat === 'function' ? props.useChat((snapshot) => snapshot) : undefined
+  // Session lifecycle feed (always present on session-scope seats) — the
+  // degraded pulse source while no Chat feed exists.
+  const session = typeof props.useSession === 'function' ? props.useSession((snapshot) => snapshot) : undefined
+  const activity: TrailActivity | undefined = chat !== undefined
+    ? deriveChatActivity(chat)
+    : session?.running === true
+      ? { running: true, counts: EMPTY_TRAIL_COUNTS }
+      : undefined
 
   const [pixels, setPixels] = useState<TrailPixel[]>([])
-  const countsRef = useRef<KindCounts>({ think: 0, tool: 0, output: 0 })
+  const countsRef = useRef<TrailCounts>(EMPTY_TRAIL_COUNTS)
+  const lastDripRef = useRef(0)
   const idRef = useRef(0)
 
   const speed = value.speed
   // speed 1 -> ~256 ms/tick (slow), speed 10 -> ~40 ms/tick (fast).
   const tickMs = Math.max(24, 280 - speed * 24)
 
-  // Feed: spawn pixels when the snapshot shows new agent activity.
+  // Feed: spawn pixels when activity grows; drip at most one pixel per tick
+  // while a turn is running (a streaming snapshot can churn per token, so the
+  // drip is throttled by the tick cadence rather than by snapshot frequency).
   useEffect(() => {
-    if (chat === undefined) return
-    const snapshot: AmbientChatSnapshot = chat
-    const counts = deriveCounts(snapshot)
+    if (activity === undefined) return
+    const counts = activity.counts
     const prev = countsRef.current
-    const spawned: TrailKind[] = []
-    for (const kind of ['think', 'tool', 'output'] as const) {
-      for (let i = prev[kind]; i < counts[kind]; i += 1) spawned.push(kind)
-    }
-    // While a turn is running, keep a steady drip for the active stream kind.
-    const legacy = snapshot.legacy
-    const running = legacy.partial !== null || legacy.runningCalls.length > 0
-    if (running && spawned.length === 0) {
-      const blocks = legacy.partial?.blocks ?? []
-      if (counts.think > 0 && blocks.some((b) => b.kind === 'reasoning')) spawned.push('think')
-      else if (counts.output > 0 && blocks.some((b) => b.kind === 'text')) spawned.push('output')
+    const spawned = countDeltas(prev, counts)
+    const now = Date.now()
+    if (activity.running && spawned.length === 0 && now - lastDripRef.current >= tickMs) {
+      const kind = streamKind(activity)
+      if (kind !== 'idle') {
+        spawned.push(kind)
+        lastDripRef.current = now
+      }
+    } else if (spawned.length > 0) {
+      lastDripRef.current = now
     }
     countsRef.current = counts
     if (spawned.length === 0) return
@@ -141,7 +139,7 @@ export function TrailAnimation(props: TrailAnimationProps): React.ReactElement |
       for (const kind of spawned) next.push(createPixel(idRef.current++, kind))
       return trim(next)
     })
-  }, [chat])
+  }, [activity, tickMs])
 
   // Ticker: scroll left and fade.
   useEffect(() => {
@@ -187,4 +185,3 @@ export function TrailAnimation(props: TrailAnimationProps): React.ReactElement |
     </div>
   )
 }
-

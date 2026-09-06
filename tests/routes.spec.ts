@@ -8,31 +8,52 @@ function fakeService(): unknown {
     view: async () => ({ fetchedAt: 0, available: true, balances: [] }),
     refresh: async () => ({ fetchedAt: 0, available: true, balances: [] }),
     tokens: () => ({ ok: false }),
-    readConfig: () => ({ opacity: 0.85, blur: 12, speed: 5, showBalance: true, showTrail: true, glass: true }),
-    writeConfig: async (patch: object) => ({ opacity: 0.85, blur: 12, speed: 5, showBalance: true, showTrail: true, glass: true, ...patch }),
   }
 }
 
+/** Capture the single JSON body a handler writes. */
+async function handle(route: { handler(req: IncomingMessage, res: ServerResponse): void }, req: Partial<IncomingMessage>): Promise<unknown> {
+  const body: unknown[] = []
+  const res = { writeHead: () => {}, end: (chunk: unknown) => { body.push(chunk) } } as unknown as ServerResponse
+  route.handler({ method: 'GET', url: '/api/ambient/x', ...req } as IncomingMessage, res)
+  await new Promise((r) => setTimeout(r, 10))
+  return body.length === 0 ? undefined : JSON.parse(String(body[0]))
+}
+
 describe('makeAmbientRoutes', () => {
-  it('registers every exact path exactly once', () => {
-    const routes = makeAmbientRoutes(fakeService() as AmbientService, () => undefined, () => [], () => undefined)
-    const exact = routes.filter((r) => r.kind === 'exact')
-    const paths = exact.map((r) => r.path)
-    expect(paths).toContain('/api/ambient/config')
-    expect(paths).toContain('/api/ambient/balance')
-    expect(paths).toContain('/api/ambient/tokens')
-    expect(new Set(paths).size).toBe(paths.length)
+  it('registers only the balance and token exact routes', () => {
+    const routes = makeAmbientRoutes(fakeService() as AmbientService, () => undefined)
+    const paths = routes.filter((r) => r.kind === 'exact').map((r) => r.path)
+    expect(paths).toEqual([
+      '/api/ambient/balance',
+      '/api/ambient/balance/refresh',
+      '/api/ambient/tokens',
+    ])
   })
 
-  it('serves GET /api/ambient/config through the merged route', async () => {
-    const routes = makeAmbientRoutes(fakeService() as AmbientService, () => undefined, () => [], () => undefined)
-    const route = routes.find((r) => r.kind === 'exact' && r.path === '/api/ambient/config')!
+  it('answers 405 for a non-GET method on /api/ambient/balance', async () => {
+    const routes = makeAmbientRoutes(fakeService() as AmbientService, () => undefined)
+    const route = routes.find((r) => r.kind === 'exact' && r.path === '/api/ambient/balance')!
+    let status = 0
     const body: unknown[] = []
-    const res = { writeHead: () => {}, end: (chunk: unknown) => { body.push(chunk) } } as unknown as ServerResponse
-    route.handler({ method: 'GET', url: '/api/ambient/config' } as IncomingMessage, res)
-    await new Promise((r) => setTimeout(r, 10))
-    expect(body.length).toBe(1)
-    const parsed = JSON.parse(String(body[0]))
-    expect(parsed.opacity).toBe(0.85)
+    const res = { writeHead: (s: number) => { status = s }, end: (chunk: unknown) => { body.push(chunk) } } as unknown as ServerResponse
+    route.handler({ method: 'PUT', url: '/api/ambient/balance' } as IncomingMessage, res)
+    await new Promise((r) => setTimeout(r, 5))
+    expect(status).toBe(405)
+    expect(JSON.parse(String(body[0]))).toEqual({ ok: false, error: 'method-not-allowed' })
+  })
+
+  it('answers /api/ambient/tokens without a session with missing-session', async () => {
+    const routes = makeAmbientRoutes(fakeService() as AmbientService, () => undefined)
+    const route = routes.find((r) => r.kind === 'exact' && r.path === '/api/ambient/tokens')!
+    const value = await handle(route, { url: '/api/ambient/tokens' })
+    expect(value).toEqual({ ok: false, error: 'missing-session' })
+  })
+
+  it('answers /api/ambient/tokens with an unknown session with unknown-session', async () => {
+    const routes = makeAmbientRoutes(fakeService() as AmbientService, () => undefined)
+    const route = routes.find((r) => r.kind === 'exact' && r.path === '/api/ambient/tokens')!
+    const value = await handle(route, { url: '/api/ambient/tokens?session=nope' })
+    expect(value).toEqual({ ok: false, error: 'unknown-session' })
   })
 })

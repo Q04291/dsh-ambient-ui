@@ -15,7 +15,7 @@
 
 两个功能均为纯 CSS 实现（CSS Modules），跟随 DSH 明暗主题（通过 `--dsw-alias-*` token），无额外运行时依赖（仅需官方 Harness 包 + React）。
 
-> 插件 ID：`dsh-ambient-ui` · 当前版本：`1.0.1`（含 DSH 0.1.2-rc.1 适配的版本请以发布为准）
+> 插件 ID：`dsh-ambient-ui` · 当前版本：`1.1.0`（已适配 DSH 0.1.2-rc.1；npm 上 ≥1.1.0 才能用于 0.1.2-rc.1 运行时）
 
 ## 环境要求
 
@@ -85,6 +85,21 @@ dsh plugin --profile web add link:<绝对路径>/dsh-ambient-ui
 
 1. 重启 `dsh web`
 2. 检查终端输出中是否有 `[dsh-ambient-ui]` 相关日志
+3. 配置行依赖 Host 侧注册的 `ambient` 命名空间经 DSH 设置通道下发；若 profile 未挂载
+   `@deepseek-ai/dsh-settings-file`（通常由 `dsh-base` 自动挂载），命名空间不会被下发，
+   行会回退到默认值且编辑不生效。
+
+### 配置存在哪里 / 改动如何生效
+
+- 配置通过 DSH 原生设置通道读写（`ctx.settings` 注册 + 浏览器 `settingsScope`），
+  持久化到 `~/.dsh/settings.yaml` 的 `ambient:` 段，改动即时生效，无需轮询。
+- 若以非 loopback 方式远程访问 GUI，settingsScope 可能处于 `memory` 模式（改动仅本次会话内生效），属 DSH 设置传输的既定行为。
+
+### 设置 → 插件 页可能列出 `ambient` 命名空间
+
+所有 Host 注册的命名空间都会被设置控制器描述给浏览器。`dsh-ambient-ui` 的配置入口在
+**General → Ambient UI**；若在 **Plugins** 页看到空的 `ambient` 项，属于 DSH 插件页对
+“仅注册命名空间、无卡片插件”的展示，不影响本插件功能。
 
 ### 悬浮窗 / 像素轨迹的位置不对
 
@@ -104,20 +119,22 @@ pnpm run build       # tsc -b && tsdown → 输出 lib/ 与 lib/client.js
 
 ```
 src/
-├── index.ts                  # Host 侧：设置项注册 + /api/ambient/* 路由
-├── config.ts                 # 共享配置类型与默认值
+├── index.ts                  # Host 侧：注册 ambient 设置命名空间 + /api/ambient/* 路由
+├── config.ts                 # 共享配置类型、默认值与命名空间常量
 ├── service.ts                # 余额查询（credentials + Get User Balance）+ token-meter 读取
-├── routes.ts                 # API 路由：/config, /balance, /tokens, /debug
+├── routes.ts                 # API 路由：/balance, /balance/refresh, /tokens
 ├── AmbientRow.tsx            # 设置面板中的 Ambient UI 配置行
 ├── BalanceWidget.tsx         # 毛玻璃余额 / 用量悬浮窗组件
 ├── TrailAnimation.tsx        # 30×8 像素轨迹动画组件
+├── trailFeed.ts              # 轨迹数据映射的纯函数（可单测）
 ├── styles.module.css         # 纯 CSS 样式（CSS Modules，跟随主题）
 └── client/
-    ├── index.ts              # Client 侧：注册 shell.overlay 与 composer.dock 插槽
-    ├── ambientConfigStore.ts # 配置共享 store
+    ├── index.ts              # Client 侧：绑定 settingsScope + 注册三个插槽
+    ├── ambientConfigStore.ts # 配置共享 store（由原生 settings scope 驱动，无轮询）
+    ├── feed.ts               # rc.1 会话标准 props 的轻量类型声明
     ├── glass.ts              # 全局弹窗毛玻璃（mask token 覆盖）
     └── useAmbientConfig.ts   # 配置消费 Hook
-tests/                        # vitest 测试
+tests/                        # vitest 测试（config / store / trailFeed / service / routes）
 shared/                       # 官方 DSH client bundle 构建预设（MIT）
 cordis.patch.yml              # bundle patch（dsh plugin 安装用）
 ```

@@ -25,6 +25,8 @@ export interface AmbientSettings {
 }
 /** Defaults for every ambient setting (also the settings-section composition base). */
 export declare const AMBIENT_DEFAULTS: AmbientSettings;
+/** Settings namespace of the ambient capability (registered Host-side). */
+export declare const AMBIENT_SETTINGS_NAMESPACE = "ambient";
 /** Plugin entry configuration (optional composition-layer overrides). */
 export type AmbientConfig = Partial<AmbientSettings> & {
     /** Credential reference (env-style name) holding the DeepSeek API key. */

@@ -13,7 +13,6 @@
 
 import { Context, Service } from '@deepseek-ai/cordis'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
-import { normalizeAmbientSettings, type AmbientSettings } from './config.ts'
 import type { Session } from '@deepseek-ai/dsh-session'
 import type { TokenMeasurement } from '@deepseek-ai/dsh-token-meter'
 import type { AmbientConfig } from './config.ts'
@@ -203,37 +202,5 @@ export class AmbientService extends Service {
       return { fetchedAt: now, available: false, balances: [], error: errorCode(error) }
     }
   }
-  /** In-process settings seam shape (the wire exposure allowlist does not apply). */
-  private get settingsSeam(): SettingsSeam | undefined {
-    return this.ctx.get('settings') as SettingsSeam | undefined
-  }
-
-  /** Current resolved ambient config from the settings seam (normalized). */
-  readConfig(): AmbientSettings {
-    const raw = this.settingsSeam?.get('ambient')
-    return normalizeAmbientSettings(raw)
-  }
-
-  /** Apply a partial config patch through the in-process settings seam. */
-  async writeConfig(patch: Partial<AmbientSettings>): Promise<AmbientSettings> {
-    const seam = this.settingsSeam
-    if (seam === undefined) throw new Error('settings service unavailable')
-    const next = normalizeAmbientSettings({ ...this.readConfig(), ...patch })
-    await seam.mutate('ambient', [
-      { op: 'set', path: ['opacity'], value: next.opacity },
-      { op: 'set', path: ['blur'], value: next.blur },
-      { op: 'set', path: ['speed'], value: next.speed },
-      { op: 'set', path: ['showBalance'], value: next.showBalance },
-      { op: 'set', path: ['showTrail'], value: next.showTrail },
-      { op: 'set', path: ['glass'], value: next.glass },
-    ])
-    return this.readConfig()
-  }
-}
-
-/** In-process settings seam shape (the wire exposure allowlist does not apply). */
-interface SettingsSeam {
-  get(ns: string): unknown
-  mutate(ns: string, ops: readonly { op: 'set' | 'unset'; path: string[]; value?: unknown }[], expectedRevision?: number): Promise<void>
 }
 

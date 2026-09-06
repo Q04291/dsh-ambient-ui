@@ -11,7 +11,6 @@
  * @module dsh-ambient-ui/service
  */
 import { Context, Service } from '@deepseek-ai/cordis';
-import { type AmbientSettings } from './config.ts';
 import type { Session } from '@deepseek-ai/dsh-session';
 import type { AmbientConfig } from './config.ts';
 /** DeepSeek API base URL. */
@@ -78,11 +77,5 @@ export declare class AmbientService extends Service {
     tokens(session: Session): TokenView;
     /** Query the provider, tolerating every failure into a view with an error field. */
     private query;
-    /** In-process settings seam shape (the wire exposure allowlist does not apply). */
-    private get settingsSeam();
-    /** Current resolved ambient config from the settings seam (normalized). */
-    readConfig(): AmbientSettings;
-    /** Apply a partial config patch through the in-process settings seam. */
-    writeConfig(patch: Partial<AmbientSettings>): Promise<AmbientSettings>;
 }
 //# sourceMappingURL=service.d.ts.map

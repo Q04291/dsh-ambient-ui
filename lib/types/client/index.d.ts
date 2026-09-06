@@ -3,9 +3,10 @@
  * trail into the composer dock band, plus the Ambient UI row in the Settings
  * panel's General section.
  *
- * The row reads and writes the plugin configuration through the Host routes
- * (GET/PUT /api/ambient/config), which persist through the in-process
- * `ctx.settings` seam to ~/.dsh/settings.yaml (`ambient:` section).
+ * Configuration is read and written through the NATIVE settings transport:
+ * the Host registers the `ambient` namespace at boot, and this entry binds it
+ * with `ctx.settingsScope` — live mirror + revisioned writes — instead of a
+ * bespoke config route and polling.
  *
  * @module dsh-ambient-ui/client
  */
@@ -18,7 +19,7 @@ export declare const name = "dsh-ambient-ui-client";
 /** Required client services before either widget mounts. */
 export declare const inject: string[];
 /**
- * Register both widgets and the settings row.
+ * Register both widgets, the settings row, and the ambient config scope.
  *
  * Registrations are deferred through `ctx.slots.inject(...)`: the seats are
  * declared by other client modules (conversation shell, settings General

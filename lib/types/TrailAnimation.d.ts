@@ -1,7 +1,7 @@
 /**
  * The pixel-art agent trail: a 30x8 dot-matrix strip in the composer dock
- * band (`conversation.composer.dock`). It watches the live conversation
- * snapshot and maps agent steps to flowing pixels:
+ * band (`conversation.input.dock`). It maps the live agent activity to flowing
+ * pixels:
  *
  * - think  -> #00ff88  (reasoning blocks)
  * - tool   -> #ff8800  (running tool calls / tool-call blocks)
@@ -10,12 +10,18 @@
  * Pixels enter at the right edge and scroll left, fading over their lifetime.
  * The scroll rate follows the `speed` setting (1 = slow ... 10 = fast).
  *
+ * Feed: at 0.1.2-rc.1 the Chat target contributes the running stream
+ * (`useChat` -> `legacy.partial` + `legacy.runningCalls`). When that feed is
+ * unavailable the trail degrades to a session-lifecycle pulse
+ * (`useSession` -> `running`).
+ *
  * @module dsh-ambient-ui/TrailAnimation
  */
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
+import { type TrailKind } from './trailFeed.ts';
 export type TrailAnimationProps = PropsRuntime<'conversation.input.dock'>;
 /** The agent-step kinds the trail renders. */
-export type TrailKind = 'think' | 'tool' | 'output' | 'idle';
+export type { TrailKind } from './trailFeed.ts';
 /** Step-type -> pixel color mapping (per the dsh-ambient-ui spec). */
 export declare const TRAIL_COLORS: Record<TrailKind, string>;
 /** Grid geometry: 30 columns x 8 rows, 8px cells. */
