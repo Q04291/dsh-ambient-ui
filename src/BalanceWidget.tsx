@@ -11,7 +11,10 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { SettingsScope, SettingsScopeSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+// Type-only: pulls the ui-conversation SlotMap merge (this seat) and the
+// ambient SessionStandardProps merge (sessionId) into this compilation.
+import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type {} from './client/feed.ts'
 import type { AmbientSettings } from './config.ts'
 import { useAmbientConfig } from './client/useAmbientConfig.ts'
 import css from './styles.module.css'

@@ -15,11 +15,14 @@
 
 两个功能均为纯 CSS 实现（CSS Modules），跟随 DSH 明暗主题（通过 `--dsw-alias-*` token），无额外运行时依赖（仅需官方 Harness 包 + React）。
 
-> 插件 ID：`dsh-ambient-ui` · 当前版本：`1.0.1`
+> 插件 ID：`dsh-ambient-ui` · 当前版本：`1.0.1`（含 DSH 0.1.2-rc.1 适配的版本请以发布为准）
 
 ## 环境要求
 
-- DSH ≥ 0.1.0-rc.6（当前为 rc 阶段，随 DSH 升级可能需同步更新插件）
+- DSH `0.1.2-rc.1`（`0.1.2-rc.1` 起 DSH 将 settings 注册从顶层 `installSettingsSection` /
+  `settingsNamespace` 迁移为 `ctx.settings` 服务 API，旧版插件需按本次适配更新；
+  `@deepseek-ai/dsh-client-runtime` 已在 rc.1 停产，client 类型统一走
+  `@deepseek-ai/dsh-client-ui-*` 与 `@deepseek-ai/dsh-client-ui-slots`）
 - Node.js ≥ 22.19
 - 余额提供方 API Key（默认读取 `DEEPSEEK_API_KEY`；可通过插件配置 `baseUrl` / `apiKeyEnv` 接入兼容端点）
 

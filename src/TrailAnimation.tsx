@@ -15,8 +15,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ConversationSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+// Type-only: pulls the ui-conversation SlotMap merge (this seat) and the
+// ambient SessionStandardProps merge (sessionId / useChat) into this compilation.
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { AmbientChatSnapshot } from './client/feed.ts'
 import type { AmbientSettings } from './config.ts'
 import { useAmbientConfig } from './client/useAmbientConfig.ts'
 import css from './styles.module.css'
@@ -62,16 +64,17 @@ interface KindCounts {
 }
 
 /** Count currently-visible agent activity by step kind. */
-function deriveCounts(snapshot: ConversationSnapshot): KindCounts {
+function deriveCounts(snapshot: AmbientChatSnapshot): KindCounts {
+  const legacy = snapshot.legacy
   let think = 0
   let tool = 0
   let output = 0
-  for (const block of snapshot.partial?.blocks ?? []) {
+  for (const block of legacy.partial?.blocks ?? []) {
     if (block.kind === 'reasoning') think += 1
     else if (block.kind === 'text') output += 1
     else if (block.kind === 'tool-call') tool += 1
   }
-  tool += snapshot.runningCalls.length
+  tool += legacy.runningCalls.length
   return { think, tool, output }
 }
 
@@ -99,7 +102,11 @@ function trim(pixels: readonly TrailPixel[]): TrailPixel[] {
  */
 export function TrailAnimation(props: TrailAnimationProps): React.ReactElement | null {
   const { value } = useAmbientConfig()
-  const snapshot = props.useSession((snapshot) => snapshot)
+  // rc.1 chat feed: the Chat target contributes `useChat` to every session-scope
+  // entry's standard kit; the trail reads the `legacy` projection (in-progress
+  // assistant stream + live tool calls). When the Chat target is not mounted,
+  // the prop is absent and the trail runs on idle drips only.
+  const chat = typeof props.useChat === 'function' ? props.useChat((snapshot) => snapshot) : undefined
 
   const [pixels, setPixels] = useState<TrailPixel[]>([])
   const countsRef = useRef<KindCounts>({ think: 0, tool: 0, output: 0 })
@@ -111,6 +118,8 @@ export function TrailAnimation(props: TrailAnimationProps): React.ReactElement |
 
   // Feed: spawn pixels when the snapshot shows new agent activity.
   useEffect(() => {
+    if (chat === undefined) return
+    const snapshot: AmbientChatSnapshot = chat
     const counts = deriveCounts(snapshot)
     const prev = countsRef.current
     const spawned: TrailKind[] = []
@@ -118,8 +127,10 @@ export function TrailAnimation(props: TrailAnimationProps): React.ReactElement |
       for (let i = prev[kind]; i < counts[kind]; i += 1) spawned.push(kind)
     }
     // While a turn is running, keep a steady drip for the active stream kind.
-    if (snapshot.running && spawned.length === 0) {
-      const blocks = snapshot.partial?.blocks ?? []
+    const legacy = snapshot.legacy
+    const running = legacy.partial !== null || legacy.runningCalls.length > 0
+    if (running && spawned.length === 0) {
+      const blocks = legacy.partial?.blocks ?? []
       if (counts.think > 0 && blocks.some((b) => b.kind === 'reasoning')) spawned.push('think')
       else if (counts.output > 0 && blocks.some((b) => b.kind === 'text')) spawned.push('output')
     }
@@ -130,7 +141,7 @@ export function TrailAnimation(props: TrailAnimationProps): React.ReactElement |
       for (const kind of spawned) next.push(createPixel(idRef.current++, kind))
       return trim(next)
     })
-  }, [snapshot])
+  }, [chat])
 
   // Ticker: scroll left and fade.
   useEffect(() => {

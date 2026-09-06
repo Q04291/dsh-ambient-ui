@@ -11,7 +11,10 @@
  */
 
 import { Context } from '@deepseek-ai/cordis'
-import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
+// Type-only: pulls the `ctx.settings` service augmentation (SettingsProvider)
+// from @deepseek-ai/dsh-settings into this compilation. The section is
+// registered with ctx.settings.installSection(...) once the service is live.
+import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import z from '@deepseek-ai/schemastery'
 import type { Session } from '@deepseek-ai/dsh-session'
@@ -57,11 +60,11 @@ export function apply(ctx: Context, config: AmbientConfig = {}): void {
     glass: config.glass ?? AMBIENT_DEFAULTS.glass,
   }
 
-  // The settings surface edits only the schema-declared fields; the
-  // browser readout consumes the namespace reactively through the client
-  // settings scope, so the Host only needs to keep the source live.
-  let current: () => AmbientSettings = () => base
-
+  // The settings surface edits only the schema-declared fields; the resolved
+  // value layers schema defaults, the composition `base`, then the user
+  // document section. `installSection` keeps the section registered for as
+  // long as a settings provider is mounted and falls back to `base` when the
+  // profile has none.
   const resolveSession = (id: string): Session | undefined => {
     const sessions = ctx.get('sessions') as { get(sid: string): Session | undefined } | undefined
     return sessions?.get(id)
@@ -78,18 +81,22 @@ export function apply(ctx: Context, config: AmbientConfig = {}): void {
     return () => { for (const dispose of disposers) dispose() }
   }, 'ambient: routes')
 
-  try {
-    installSettingsSection(ctx, settingsNamespace(AMBIENT_SETTINGS_NAMESPACE), AMBIENT_SETTINGS_SCHEMA, base, {
-      setSource: (source) => { current = source },
+  // Register the `ambient` settings section through the live settings
+  // service. 0.1.2-rc.1 replaced the old top-level installSettingsSection /
+  // settingsNamespace helpers with the ctx.settings service API; the argument
+  // order maps 1:1 (owner, ns, schema, entry=base, hooks).
+  ctx.inject(['settings'], (settingsCtx) => {
+    settingsCtx.settings.installSection(ctx, AMBIENT_SETTINGS_NAMESPACE, AMBIENT_SETTINGS_SCHEMA, base, {
+      setSource: () => {
+        // The provider now resolves the section (defaults + base + user); the
+        // ambient readout and routes read the seam directly, so nothing is
+        // cached here.
+      },
       onChange: () => {
-        // Fires when the inner settings inject registers the section.
         console.log('[dsh-ambient-ui] settings section onChange fired (registration live)')
-        void current
       },
     })
-    console.log('[dsh-ambient-ui] installSettingsSection registered without throwing')
-  } catch (error) {
-    console.error('[dsh-ambient-ui] installSettingsSection FAILED:', error)
-  }
+    console.log('[dsh-ambient-ui] installSection registered the ambient settings section')
+  })
 }
 
