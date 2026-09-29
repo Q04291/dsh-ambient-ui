@@ -4,9 +4,9 @@
  * panel's General section.
  *
  * Configuration is read and written through the NATIVE settings transport:
- * the Host registers the `ambient` namespace at boot, and this entry binds it
- * with `ctx.settingsScope` — live mirror + revisioned writes — instead of a
- * bespoke config route and polling.
+ * the Host declares the `ambient` profile entry's Config, and this entry takes
+ * that entry's form with `ctx.configForms.get(...)` — accepted values plus the
+ * revisioned write queue — instead of a bespoke config route and polling.
  *
  * @module dsh-ambient-ui/client
  */
@@ -19,7 +19,7 @@ export declare const name = "dsh-ambient-ui-client";
 /** Required client services before either widget mounts. */
 export declare const inject: string[];
 /**
- * Register both widgets, the settings row, and the ambient config scope.
+ * Register both widgets, the settings row, and the ambient config form.
  *
  * Registrations are deferred through `ctx.slots.inject(...)`: the seats are
  * declared by other client modules (conversation shell, settings General

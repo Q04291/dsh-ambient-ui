@@ -1,7 +1,7 @@
 /**
  * Shared configuration surface for dsh-ambient-ui.
  *
- * The browser readout and the Host settings section both speak this shape:
+ * The Host form schema and the browser readout both speak this shape:
  * `opacity`, `blur` and `speed` drive the two UI features, and the optional
  * composition fields (apiKeyEnv / baseUrl / refreshIntervalSeconds) tune the
  * Host balance probe.
@@ -35,10 +35,45 @@ export const AMBIENT_DEFAULTS: AmbientSettings = {
   glass: true,
 }
 
-/** Settings namespace of the ambient capability (registered Host-side). */
+/** Settings namespace of the ambient capability; it doubles as the cordis.patch.yml entry id. */
 export const AMBIENT_SETTINGS_NAMESPACE = 'ambient'
 
-/** Plugin entry configuration (optional composition-layer overrides). */
+/** A live Config field reference, the shape schemastery's `.volatile()` resolves to. */
+export interface LiveSetting<T> {
+  /** Current resolved value of the live field. */
+  get(): T | undefined
+}
+
+/**
+ * Config as the Loader hands it to `apply()`.
+ *
+ * The six ambient fields are volatile references — the Settings form writes
+ * them through the profile patch and the running reference follows — so the
+ * Host side never has to read them. The three connection knobs are ordinary
+ * composition-layer values.
+ */
+export interface AmbientRuntimeConfig {
+  /** Live floating-widget opacity. */
+  opacity?: LiveSetting<number>
+  /** Live glassmorphism blur radius. */
+  blur?: LiveSetting<number>
+  /** Live trail animation speed. */
+  speed?: LiveSetting<number>
+  /** Live balance-widget visibility. */
+  showBalance?: LiveSetting<boolean>
+  /** Live trail visibility. */
+  showTrail?: LiveSetting<boolean>
+  /** Live glass-surface switch. */
+  glass?: LiveSetting<boolean>
+  /** Credential reference (env-style name) holding the DeepSeek API key. */
+  apiKeyEnv?: string
+  /** DeepSeek API base URL (override for gateway/compat providers). */
+  baseUrl?: string
+  /** Minimum seconds between provider balance queries. */
+  refreshIntervalSeconds?: number
+}
+
+/** Plugin entry configuration consumed by the host balance service. */
 export type AmbientConfig = Partial<AmbientSettings> & {
   /** Credential reference (env-style name) holding the DeepSeek API key. */
   apiKeyEnv?: string

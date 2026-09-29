@@ -1,10 +1,10 @@
 /**
  * The Ambient UI settings row, mounted in the Settings panel's General
  * section (settings.general.item). Reads and writes the plugin configuration
- * through the shared ambient config store, which is fed by the native
- * `ctx.settingsScope` binding of the Host-registered `ambient` namespace — so
- * edits persist to the `ambient:` section of settings.yaml through the DSH
- * settings transport.
+ * through the shared ambient config store, which is fed by the entry's form
+ * from `ctx.configForms` — the `ambient` Config schema the Host declares — so
+ * edits persist into the profile's Cordis patch through the DSH settings
+ * transport.
  *
  * @module dsh-ambient-ui/AmbientRow
  */

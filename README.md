@@ -15,14 +15,15 @@
 
 两个功能均为纯 CSS 实现（CSS Modules），跟随 DSH 明暗主题（通过 `--dsw-alias-*` token），无额外运行时依赖（仅需官方 Harness 包 + React）。
 
-> 插件 ID：`dsh-ambient-ui` · 当前版本：`1.1.0`（已适配 DSH 0.1.2-rc.1；npm 上 ≥1.1.0 才能用于 0.1.2-rc.1 运行时）
+> 插件 ID：`dsh-ambient-ui` · 当前版本：`1.3.0`（已适配 DSH 0.2.0-rc.2；仍用 DSH 0.1.2-rc.1 运行时请留在 `1.2.0`）
 
 ## 环境要求
 
-- DSH `0.1.2-rc.1`（`0.1.2-rc.1` 起 DSH 将 settings 注册从顶层 `installSettingsSection` /
-  `settingsNamespace` 迁移为 `ctx.settings` 服务 API，旧版插件需按本次适配更新；
-  `@deepseek-ai/dsh-client-runtime` 已在 rc.1 停产，client 类型统一走
-  `@deepseek-ai/dsh-client-ui-*` 与 `@deepseek-ai/dsh-client-ui-slots`）
+- DSH `0.2.0-rc.2`。`0.2.0` 把设置模型换成“插件自己的 `Config`”：Host 侧用 schemastery
+  `.volatile()` 声明可即时编辑的字段，表单按 profile 条目 id 下发，浏览器侧通过
+  `ctx.configForms.get(entryId)` 读写；`ctx.settingsScope` 与
+  `ctx.settings.installSection` 均已移除，旧版插件必须按本次适配更新。
+  仍跑在 DSH `0.1.2-rc.1` 上的运行时请安装本插件的 `1.2.0`，不要升级到 `1.3.0`。
 - Node.js ≥ 22.19
 - 余额提供方 API Key（默认读取 `DEEPSEEK_API_KEY`；可通过插件配置 `baseUrl` / `apiKeyEnv` 接入兼容端点）
 
@@ -52,6 +53,8 @@ dsh plugin --profile desktop add https://github.com/Q04291/dsh-ambient-ui
 
 > 仓库已提交构建产物（`lib/`），从 Git 安装**不需要**执行构建脚本，pnpm 11+ 也不会要求 `allowBuilds` 放行。
 > 如果仍报 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`（提示在 profile 的 `pnpm-workspace.yaml` 里写 `allowBuilds`），说明装到的是仍带 `prepare` 脚本的旧提交（`v1.2.0` 及更早）：改用上面的 npm 安装，或拉取最新提交后重装。
+>
+> 版本与运行时对应关系：DSH `0.2.0-rc.2` → 插件 `1.3.0+`；DSH `0.1.2-rc.1` → 插件 `1.2.0`（peer 范围不含 0.2，装错版本会被 DSH 的兼容性检查拒绝）。
 
 ### 从本地目录安装（开发调试）
 
@@ -91,22 +94,23 @@ dsh plugin --profile web add link:<绝对路径>/dsh-ambient-ui
 ### 设置面板中看不到 Ambient UI 配置行
 
 1. 重启 `dsh web`
-2. 检查终端输出中是否有 `[dsh-ambient-ui]` 相关日志
-3. 配置行依赖 Host 侧注册的 `ambient` 命名空间经 DSH 设置通道下发；若 profile 未挂载
-   `@deepseek-ai/dsh-settings-file`（通常由 `dsh-base` 自动挂载），命名空间不会被下发，
-   行会回退到默认值且编辑不生效。
+2. 配置行依赖 profile 里的 `ambient` 条目被 `@deepseek-ai/dsh-settings` 描述给浏览器
+   （`dsh-base` 组合包已包含该服务）；缺少它时，行会回退到默认值且编辑不生效。
 
 ### 配置存在哪里 / 改动如何生效
 
-- 配置通过 DSH 原生设置通道读写（`ctx.settings` 注册 + 浏览器 `settingsScope`），
-  持久化到 `~/.dsh/settings.yaml` 的 `ambient:` 段，改动即时生效，无需轮询。
-- 若以非 loopback 方式远程访问 GUI，settingsScope 可能处于 `memory` 模式（改动仅本次会话内生效），属 DSH 设置传输的既定行为。
+- 六个界面字段是插件 `Config` 里的 volatile 字段：表单写入当前 profile 的 Cordis patch
+  （`~/.dsh/profiles/<profile>/cordis.patch.yml` 的 `ambient` 条目），运行中的引用随之更新，
+  改动即时生效，无需轮询，也不用重启。
+- `apiKeyEnv` / `baseUrl` / `refreshIntervalSeconds` 是普通字段，属于组合层配置：直接写在
+  Cordis 配置里，不出现在设置表单中。
+- 若以非 loopback 方式远程访问 GUI，表单可能处于 `memory` 模式（改动仅本次会话内生效），属 DSH 设置传输的既定行为。
 
-### 设置 → 插件 页可能列出 `ambient` 命名空间
+### 设置 → 插件 页里的 `ambient` 条目
 
-所有 Host 注册的命名空间都会被设置控制器描述给浏览器。`dsh-ambient-ui` 的配置入口在
-**General → Ambient UI**；若在 **Plugins** 页看到空的 `ambient` 项，属于 DSH 插件页对
-“仅注册命名空间、无卡片插件”的展示，不影响本插件功能。
+设置表单以 profile 条目 id 标识插件，本插件的条目 id 就是 `ambient`（见 `cordis.patch.yml`）。
+配置入口在 **General → Ambient UI**；`apply` 已用 `ctx.settings.configure({ auto: false })`
+关掉按 schema 自动生成的页面，因此不会出现第二个入口。
 
 ### 悬浮窗 / 像素轨迹的位置不对
 
@@ -126,7 +130,7 @@ pnpm run build       # tsc -b && tsdown → 输出 lib/ 与 lib/client.js
 
 ```
 src/
-├── index.ts                  # Host 侧：注册 ambient 设置命名空间 + /api/ambient/* 路由
+├── index.ts                  # Host 侧：声明 ambient Config（设置表单 schema）+ /api/ambient/* 路由
 ├── config.ts                 # 共享配置类型、默认值与命名空间常量
 ├── service.ts                # 余额查询（credentials + Get User Balance）+ token-meter 读取
 ├── routes.ts                 # API 路由：/balance, /balance/refresh, /tokens
@@ -136,12 +140,12 @@ src/
 ├── trailFeed.ts              # 轨迹数据映射的纯函数（可单测）
 ├── styles.module.css         # 纯 CSS 样式（CSS Modules，跟随主题）
 └── client/
-    ├── index.ts              # Client 侧：绑定 settingsScope + 注册三个插槽
-    ├── ambientConfigStore.ts # 配置共享 store（由原生 settings scope 驱动，无轮询）
+    ├── index.ts              # Client 侧：取 ambient 表单（configForms）+ 注册三个插槽
+    ├── ambientConfigStore.ts # 配置共享 store（由原生设置表单驱动，无轮询）
     ├── feed.ts               # rc.1 会话标准 props 的轻量类型声明
     ├── glass.ts              # 全局弹窗毛玻璃（mask token 覆盖）
     └── useAmbientConfig.ts   # 配置消费 Hook
-tests/                        # vitest 测试（config / store / trailFeed / service / routes）
+tests/                        # vitest 测试（config / store / client / trailFeed / service / routes）
 shared/                       # 官方 DSH client bundle 构建预设（MIT）
 cordis.patch.yml              # bundle patch（dsh plugin 安装用）
 ```
