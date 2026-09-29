@@ -43,8 +43,15 @@ dsh plugin --profile desktop add dsh-ambient-ui
 ### 从 Git 安装（获取最新开发版）
 
 ```sh
+# Web 端
 dsh plugin --profile web add https://github.com/Q04291/dsh-ambient-ui
+
+# 桌面端
+dsh plugin --profile desktop add https://github.com/Q04291/dsh-ambient-ui
 ```
+
+> 仓库已提交构建产物（`lib/`），从 Git 安装**不需要**执行构建脚本，pnpm 11+ 也不会要求 `allowBuilds` 放行。
+> 如果仍报 `ERR_PNPM_GIT_DEP_PREPARE_NOT_ALLOWED`（提示在 profile 的 `pnpm-workspace.yaml` 里写 `allowBuilds`），说明装到的是仍带 `prepare` 脚本的旧提交（`v1.2.0` 及更早）：改用上面的 npm 安装，或拉取最新提交后重装。
 
 ### 从本地目录安装（开发调试）
 
