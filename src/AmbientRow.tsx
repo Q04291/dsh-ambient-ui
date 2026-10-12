@@ -13,6 +13,7 @@ import { useState } from 'react'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { useAmbientConfig } from './client/useAmbientConfig.ts'
+import { glassTintAlpha } from './glassRecipe.ts'
 import css from './styles.module.css'
 
 export type AmbientRowProps = PropsRuntime<'settings.general.item'>
@@ -98,12 +99,12 @@ export function AmbientRow(_props: AmbientRowProps): React.ReactElement {
       </div>
       <div className={css.settingsFields}>
         <SliderField
-          label="透明度"
+          label="玻璃浓度"
           value={value.opacity}
           min={0.3}
           max={1}
           step={0.05}
-          format={(v) => v.toFixed(2)}
+          format={(v) => `${Math.round(glassTintAlpha(v) * 100)}%`}
           onCommit={(v) => commit('opacity', v)}
         />
         <SliderField

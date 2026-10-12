@@ -1,187 +1,326 @@
 /**
- * The pixel-art agent trail: a 30x8 dot-matrix strip in the composer dock
- * band (`conversation.input.dock`). It maps the live agent activity to flowing
- * pixels:
+ * The Agent pixel trail.
  *
- * - think  -> #00ff88  (reasoning blocks)
- * - tool   -> #ff8800  (running tool calls / tool-call blocks)
- * - output -> #4488ff  (text blocks)
+ * Sits above the composer (`conversation.input.dock`) and turns Agent activity
+ * into pixels crawling right-to-left: reasoning, tool calls and output each get
+ * their own colour, taken from the live DSH theme.
  *
- * Pixels enter at the right edge and scroll left, fading over their lifetime.
- * The scroll rate follows the `speed` setting (1 = slow ... 10 = fast).
- *
- * Feed: at 0.1.2-rc.1 the Chat target contributes the running stream
- * (`useChat` -> `legacy.partial` + `legacy.runningCalls`). When that feed is
- * unavailable the trail degrades to a session-lifecycle pulse
- * (`useSession` -> `running`).
+ * Rewritten from 240 absolutely-positioned React `<span>`s (re-rendered up to
+ * ~41×/s, each with its own `box-shadow`) into a single device-pixel-ratio
+ * scaled `<canvas>` driven by one animation frame. Pixel motion is now
+ * time-based and fractional instead of one whole 8px cell per tick, which is
+ * what made the old strip look coarse next to the rest of the UI. Nothing here
+ * re-renders React per frame: the simulation lives in a ref and the canvas is
+ * painted imperatively.
  *
  * @module dsh-ambient-ui/TrailAnimation
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, type ReactElement } from 'react'
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-// Type-only: pulls the ui-conversation SlotMap merge (this seat) and the
-// ambient SessionStandardProps merge (sessionId / useChat) into this compilation.
+// Side-effect import: augments the slot props with the conversation hooks.
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { AmbientSettings } from './config.ts'
 import { useAmbientConfig } from './client/useAmbientConfig.ts'
+import { readThemeToken, useDarkTheme, usePrefersReducedMotion } from './client/theme.ts'
 import css from './styles.module.css'
 import {
   EMPTY_TRAIL_COUNTS,
-  countDeltas,
   deriveChatActivity,
-  streamKind,
   type TrailActivity,
-  type TrailCounts,
   type TrailKind,
 } from './trailFeed.ts'
+import {
+  TRAIL_CELL_PX,
+  TRAIL_COLS,
+  TRAIL_ROWS,
+  createTrailSim,
+  staticTrailPixels,
+  stepTrailSim,
+  trailAlpha,
+  trailPalette,
+  type TrailPixel,
+  type TrailSim,
+} from './trailSim.ts'
 
+/** Props for the dock seat. */
 export type TrailAnimationProps = PropsRuntime<'conversation.input.dock'>
 
-/** The agent-step kinds the trail renders. */
 export type { TrailKind } from './trailFeed.ts'
 
-/** Step-type -> pixel color mapping (per the dsh-ambient-ui spec). */
-export const TRAIL_COLORS: Record<TrailKind, string> = {
-  think: '#00ff88',
-  tool: '#ff8800',
-  output: '#4488ff',
-  idle: '#8c96aa',
-}
+/** Canvas width in CSS px (grid width × cell size). */
+const CANVAS_W = TRAIL_COLS * TRAIL_CELL_PX
 
-/** Grid geometry: 30 columns x 8 rows, 8px cells. */
-export const TRAIL_COLS = 30
-export const TRAIL_ROWS = 8
-export const TRAIL_CELL_PX = 8
+/** Canvas height in CSS px (grid height × cell size). */
+const CANVAS_H = TRAIL_ROWS * TRAIL_CELL_PX
 
-/** Pixel lifetime in ticks (fade length). */
-const MAX_LIFE = 14
-/** Upper bound on live pixels (memory guard). */
-const MAX_PIXELS = 240
-/** Idle-drip probability per tick when the trail is empty. */
-const IDLE_DRIP = 0.18
+/** Transparent margin baked around each sprite so the glow is not clipped. */
+const SPRITE_PAD = 6
 
-/** One animated pixel. */
-export interface TrailPixel {
-  id: number
-  kind: TrailKind
-  x: number
-  y: number
-  life: number
-}
+/** Sprite edge length in px. */
+const SPRITE_SIZE = TRAIL_CELL_PX + SPRITE_PAD * 2
 
-/** Create one pixel at the right edge on a random row. */
-function createPixel(id: number, kind: TrailKind): TrailPixel {
-  return {
-    id,
-    kind,
-    x: TRAIL_COLS - 1,
-    y: Math.floor(Math.random() * TRAIL_ROWS),
-    life: MAX_LIFE,
+/** Core square edge length inside a sprite. */
+const SPRITE_CORE = TRAIL_CELL_PX - 2
+
+/** Frame interval used while the trail is empty and the agent is idle, in ms. */
+const QUIET_FRAME_MS = 250
+
+/** Idle pixels are dimmed so at-rest breathing never competes with the composer. */
+const IDLE_DIM = 0.5
+
+/** One pre-rendered glow sprite per trail kind. */
+type TrailSprites = Record<TrailKind, HTMLCanvasElement>
+
+/**
+ * Add a rounded-rect sub-path, falling back to a plain rect on engines without
+ * `CanvasRenderingContext2D.roundRect`.
+ */
+function addRoundRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  ctx.beginPath()
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, w, h, r)
+    return
   }
-}
-
-/** Bound the live pixel list. */
-function trim(pixels: readonly TrailPixel[]): TrailPixel[] {
-  if (pixels.length <= MAX_PIXELS) return [...pixels]
-  return [...pixels.slice(pixels.length - MAX_PIXELS)]
+  ctx.rect(x, y, w, h)
 }
 
 /**
- * The pixel trail strip.
- * @param props - the composed composer-dock entry props.
+ * Build one glow sprite per kind for the current theme.
+ *
+ * Baking the halo with `shadowBlur` once means the animation frame draws a
+ * single `drawImage` per pixel instead of recomputing a shadow every frame.
+ * @param dark - whether the DSH dark theme is active.
+ * @returns one canvas per trail kind.
  */
-export function TrailAnimation(props: TrailAnimationProps): React.ReactElement | null {
-  const { value } = useAmbientConfig()
-  // Chat-target feed (rich: think/tool/output). Absent when the Chat target is
-  // not mounted in this GUI composition.
-  const chat = typeof props.useChat === 'function' ? props.useChat((snapshot) => snapshot) : undefined
-  // Session lifecycle feed (always present on session-scope seats) — the
-  // degraded pulse source while no Chat feed exists.
-  const session = typeof props.useSession === 'function' ? props.useSession((snapshot) => snapshot) : undefined
-  const activity: TrailActivity | undefined = chat !== undefined
-    ? deriveChatActivity(chat)
-    : session?.running === true
-      ? { running: true, counts: EMPTY_TRAIL_COUNTS }
-      : undefined
-
-  const [pixels, setPixels] = useState<TrailPixel[]>([])
-  const countsRef = useRef<TrailCounts>(EMPTY_TRAIL_COUNTS)
-  const lastDripRef = useRef(0)
-  const idRef = useRef(0)
-
-  const speed = value.speed
-  // speed 1 -> ~256 ms/tick (slow), speed 10 -> ~40 ms/tick (fast).
-  const tickMs = Math.max(24, 280 - speed * 24)
-
-  // Feed: spawn pixels when activity grows; drip at most one pixel per tick
-  // while a turn is running (a streaming snapshot can churn per token, so the
-  // drip is throttled by the tick cadence rather than by snapshot frequency).
-  useEffect(() => {
-    if (activity === undefined) return
-    const counts = activity.counts
-    const prev = countsRef.current
-    const spawned = countDeltas(prev, counts)
-    const now = Date.now()
-    if (activity.running && spawned.length === 0 && now - lastDripRef.current >= tickMs) {
-      const kind = streamKind(activity)
-      if (kind !== 'idle') {
-        spawned.push(kind)
-        lastDripRef.current = now
-      }
-    } else if (spawned.length > 0) {
-      lastDripRef.current = now
+function buildSprites(dark: boolean): TrailSprites {
+  const palette = trailPalette(dark, readThemeToken)
+  const sprites = {} as TrailSprites
+  for (const kind of Object.keys(palette) as TrailKind[]) {
+    const color = palette[kind]
+    const sprite = typeof document === 'undefined' ? null : document.createElement('canvas')
+    if (sprite === null) continue
+    sprite.width = SPRITE_SIZE
+    sprite.height = SPRITE_SIZE
+    const ctx = sprite.getContext('2d')
+    if (ctx === null) {
+      sprites[kind] = sprite
+      continue
     }
-    countsRef.current = counts
-    if (spawned.length === 0) return
-    setPixels((prevPixels) => {
-      const next = [...prevPixels]
-      for (const kind of spawned) next.push(createPixel(idRef.current++, kind))
-      return trim(next)
-    })
-  }, [activity, tickMs])
+    const inset = SPRITE_PAD + 1
+    ctx.fillStyle = color
+    ctx.shadowColor = color
+    ctx.shadowBlur = 5
+    ctx.shadowOffsetX = 0
+    ctx.shadowOffsetY = 0
+    addRoundRect(ctx, inset, inset, SPRITE_CORE, SPRITE_CORE, 2)
+    // Two shadowed passes deepen the halo, then one crisp pass restores the core.
+    ctx.fill()
+    ctx.fill()
+    ctx.shadowBlur = 0
+    ctx.shadowColor = 'transparent'
+    ctx.fill()
+    sprites[kind] = sprite
+  }
+  return sprites
+}
 
-  // Ticker: scroll left and fade.
+/** Clear the whole backing store and restore the DPR transform. */
+function clearCanvas(
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+  dpr: number,
+): void {
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+}
+
+/** Composite the live pixels. */
+function paintPixels(
+  ctx: CanvasRenderingContext2D,
+  sprites: TrailSprites,
+  pixels: readonly TrailPixel[],
+): void {
+  for (const pixel of pixels) {
+    const sprite = sprites[pixel.kind]
+    if (sprite === undefined) continue
+    const dim = pixel.kind === 'idle' ? IDLE_DIM : 1
+    ctx.globalAlpha = Math.max(0.02, Math.min(1, trailAlpha(pixel.life) * dim))
+    ctx.drawImage(
+      sprite,
+      pixel.x * TRAIL_CELL_PX - SPRITE_PAD,
+      pixel.y * TRAIL_CELL_PX - SPRITE_PAD,
+    )
+  }
+  ctx.globalAlpha = 1
+}
+
+/** Props shared by the two feed adapters. */
+interface TrailCanvasProps {
+  activity: TrailActivity | undefined
+  speed: number
+}
+
+/**
+ * The canvas itself. Owns the simulation and the frame loop.
+ * @param props - feed-derived activity and the trail-speed setting.
+ */
+function TrailCanvas({ activity, speed }: TrailCanvasProps): ReactElement {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const simRef = useRef<TrailSim | null>(null)
+  const activityRef = useRef<TrailActivity | undefined>(activity)
+  const speedRef = useRef(speed)
+  const dark = useDarkTheme()
+  const reduced = usePrefersReducedMotion()
+
+  if (simRef.current === null) simRef.current = createTrailSim()
+  const sim = simRef.current
+  const sprites = useMemo(() => buildSprites(dark), [dark])
+
+  // The frame loop reads the latest inputs from refs, so changing them must not
+  // tear down and restart the loop.
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setPixels((prev) => {
-        if (prev.length === 0) return prev
-        const next = prev
-          .map((p) => ({ ...p, x: p.x - 1, life: p.life - 1 }))
-          .filter((p) => p.x >= 0 && p.life > 0)
-        if (next.length === 0 && Math.random() < IDLE_DRIP) {
-          next.push(createPixel(idRef.current++, 'idle'))
-        }
-        return next
-      })
-    }, tickMs)
-    return () => window.clearInterval(timer)
-  }, [tickMs])
+    activityRef.current = activity
+  }, [activity])
+
+  useEffect(() => {
+    speedRef.current = speed
+  }, [speed])
+
+  // Keep the backing store matched to the device pixel ratio. Declared BEFORE
+  // any paint effect: assigning `canvas.width` clears the bitmap, so a still
+  // frame painted first would be wiped again on mount.
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (canvas === null) return
+    const ctx = canvas.getContext('2d')
+    if (ctx === null) return
+
+    let dpr = 1
+    const size = (): void => {
+      dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1))
+      canvas.width = Math.round(CANVAS_W * dpr)
+      canvas.height = Math.round(CANVAS_H * dpr)
+      clearCanvas(canvas, ctx, dpr)
+      // A resize clears the bitmap too, and under reduced motion nothing else
+      // is going to paint it again until the next feed update.
+      if (reduced) paintPixels(ctx, sprites, staticTrailPixels(activityRef.current))
+    }
+    size()
+    window.addEventListener('resize', size)
+
+    return () => {
+      window.removeEventListener('resize', size)
+    }
+  }, [reduced, sprites])
+
+  // Reduced motion: one deterministic still frame per feed update, no loop.
+  useEffect(() => {
+    if (!reduced) return
+    const canvas = canvasRef.current
+    if (canvas === null) return
+    const ctx = canvas.getContext('2d')
+    if (ctx === null) return
+    const dpr = canvas.width > 0 ? canvas.width / CANVAS_W : 1
+    clearCanvas(canvas, ctx, dpr)
+    paintPixels(ctx, sprites, staticTrailPixels(activity))
+  }, [reduced, activity, sprites])
+
+  // The frame loop. Reads the latest inputs from refs, so changing a setting
+  // must not tear down and restart it.
+  useEffect(() => {
+    if (reduced) return
+    const canvas = canvasRef.current
+    if (canvas === null) return
+    const ctx = canvas.getContext('2d')
+    if (ctx === null) return
+    const dpr = canvas.width > 0 ? canvas.width / CANVAS_W : 1
+
+    let raf = 0
+    let last = performance.now()
+    const frame = (now: number): void => {
+      raf = requestAnimationFrame(frame)
+      // Nothing moving and nothing running: keep the loop alive but idle at
+      // ~4fps, and let `last` advance only when real work happens so the idle
+      // spark cadence stays correct.
+      const quiet = sim.pixels.length === 0 && activityRef.current?.running !== true
+      if (quiet && now - last < QUIET_FRAME_MS) return
+      const dt = now - last
+      last = now
+      stepTrailSim(sim, { activity: activityRef.current, dtMs: dt, speed: speedRef.current })
+      clearCanvas(canvas, ctx, dpr)
+      paintPixels(ctx, sprites, sim.pixels)
+    }
+    raf = requestAnimationFrame(frame)
+
+    return () => {
+      cancelAnimationFrame(raf)
+    }
+  }, [sprites, reduced, sim])
+
+  return (
+    <div className={css.trail} aria-hidden="true">
+      <canvas
+        ref={canvasRef}
+        className={css.trailCanvas}
+        width={CANVAS_W}
+        height={CANVAS_H}
+        style={{ width: `${CANVAS_W}px`, height: `${CANVAS_H}px` }}
+      />
+    </div>
+  )
+}
+
+/**
+ * Chat-feed adapter. Calls `useChat` unconditionally — the previous version
+ * guarded the call with `typeof props.useChat === 'function'`, which is a
+ * rules-of-hooks violation that breaks as soon as the host swaps the prop.
+ */
+function ChatTrail(props: { useChat: TrailAnimationProps['useChat']; speed: number }): ReactElement {
+  const chat = props.useChat((snapshot) => snapshot)
+  return <TrailCanvas activity={deriveChatActivity(chat)} speed={props.speed} />
+}
+
+/** Session-feed fallback adapter; unconditional `useSession` for the same reason. */
+function SessionTrail(props: {
+  useSession: TrailAnimationProps['useSession']
+  speed: number
+}): ReactElement {
+  const session = props.useSession((snapshot) => snapshot)
+  // Without a chat feed there is no block detail, so the trail only knows
+  // whether work is in flight.
+  const activity: TrailActivity = {
+    running: session?.running === true,
+    counts: EMPTY_TRAIL_COUNTS,
+  }
+  return <TrailCanvas activity={activity} speed={props.speed} />
+}
+
+/**
+ * Trail seat entry point.
+ *
+ * `useAmbientConfig` is the only hook called here; the feed hooks live in the
+ * child components so that returning `null` while hidden never changes this
+ * component's hook order.
+ * @param props - dock seat props from the host.
+ * @returns the trail, or null when the trail is switched off.
+ */
+export function TrailAnimation(props: TrailAnimationProps): ReactElement | null {
+  const { value } = useAmbientConfig()
+  const speed: AmbientSettings['speed'] = value.speed
 
   if (value.showTrail === false) return null
 
-  const gridStyle: React.CSSProperties = {
-    width: TRAIL_COLS * TRAIL_CELL_PX,
-    height: TRAIL_ROWS * TRAIL_CELL_PX,
-  }
-
-  return (
-    <div className={css.trail} aria-hidden="true" data-testid="ambient-trail">
-      <div className={css.trailGrid} style={gridStyle}>
-        {pixels.map((pixel) => (
-          <span
-            key={pixel.id}
-            className={`${css.cell} ${css[`cell${pixel.kind[0].toUpperCase()}${pixel.kind.slice(1)}`]}`}
-            style={{
-              left: pixel.x * TRAIL_CELL_PX,
-              top: pixel.y * TRAIL_CELL_PX,
-              width: TRAIL_CELL_PX,
-              height: TRAIL_CELL_PX,
-              opacity: Math.max(0.08, pixel.life / MAX_LIFE),
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  )
+  const { useChat, useSession } = props
+  if (typeof useChat === 'function') return <ChatTrail useChat={useChat} speed={speed} />
+  if (typeof useSession === 'function') return <SessionTrail useSession={useSession} speed={speed} />
+  return <TrailCanvas activity={undefined} speed={speed} />
 }

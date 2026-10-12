@@ -60,22 +60,45 @@ function fakeCtx(form: AmbientConfigScope): {
 }
 
 /** The DOM the glass installer touches, which the node test environment lacks. */
-function stubDom(): void {
+function stubDom(): {
+  bodyStyle: { getPropertyValue: ReturnType<typeof vi.fn>; setProperty: ReturnType<typeof vi.fn>; removeProperty: ReturnType<typeof vi.fn> }
+  rootStyle: { setProperty: ReturnType<typeof vi.fn>; removeProperty: ReturnType<typeof vi.fn> }
+  created: { id: string; textContent: string; setAttribute: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn> }[]
+} {
+  const bodyStyle = {
+    getPropertyValue: vi.fn(() => ''),
+    setProperty: vi.fn(),
+    removeProperty: vi.fn(),
+  }
+  const rootStyle = { setProperty: vi.fn(), removeProperty: vi.fn() }
+  const created: { id: string; textContent: string; setAttribute: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn> }[] = []
+  // DSH declares every --dsw-* token on `body` and flips the dark theme with
+  // `body[data-ds-dark-theme]`, so the stub has to model body, not just root.
   vi.stubGlobal('document', {
-    documentElement: { style: { setProperty: vi.fn(), removeProperty: vi.fn() } },
+    body: { style: bodyStyle, hasAttribute: vi.fn(() => false) },
+    documentElement: { style: rootStyle, hasAttribute: vi.fn(() => false) },
     head: { appendChild: vi.fn() },
     getElementById: vi.fn(() => null),
-    createElement: vi.fn(() => ({ id: '', textContent: '', remove: vi.fn() })),
+    createElement: vi.fn(() => {
+      const element = { id: '', textContent: '', setAttribute: vi.fn(), remove: vi.fn() }
+      created.push(element)
+      return element
+    }),
   })
   vi.stubGlobal('getComputedStyle', vi.fn(() => ({ getPropertyValue: () => '' })))
+  vi.stubGlobal('CSS', { supports: () => true })
   vi.stubGlobal('MutationObserver', class {
     observe(): void {}
     disconnect(): void {}
   })
+  return { bodyStyle, rootStyle, created }
 }
 
+/** The DOM stub installed by the current test. */
+let dom: ReturnType<typeof stubDom>
+
 beforeEach(() => {
-  stubDom()
+  dom = stubDom()
   detachAmbientConfigScope()
 })
 
@@ -117,5 +140,21 @@ describe('ambient client plugin', () => {
     effects[0]()
     setDoc({ opacity: 0.9, blur: 12, speed: 5, showBalance: true, showTrail: true, glass: true })
     expect(getAmbientConfigSnapshot().value.opacity).toBe(0.5)
+  })
+
+  it('writes the glass tokens onto body, where DSH declares them', () => {
+    const { form } = fakeForm({ opacity: 0.5, blur: 16, glass: true })
+    const { ctx } = fakeCtx(form)
+
+    apply(ctx)
+
+    const written = dom.bodyStyle.setProperty.mock.calls.map((call) => call[0])
+    expect(written).toContain('--dsw-mask-blur')
+    expect(written).toContain('--ambient-glass-panel')
+    expect(dom.bodyStyle.setProperty).toHaveBeenCalledWith('--dsw-mask-blur', 'blur(16px)')
+    // Writing to documentElement is the bug this test pins: DSH re-declares the
+    // tokens it owns on body, so a root-level override is always overridden.
+    expect(dom.rootStyle.setProperty).not.toHaveBeenCalled()
+    expect(dom.created[0]?.textContent).toContain('[role="dialog"][aria-modal="true"]')
   })
 })

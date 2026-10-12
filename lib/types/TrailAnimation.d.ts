@@ -1,44 +1,33 @@
 /**
- * The pixel-art agent trail: a 30x8 dot-matrix strip in the composer dock
- * band (`conversation.input.dock`). It maps the live agent activity to flowing
- * pixels:
+ * The Agent pixel trail.
  *
- * - think  -> #00ff88  (reasoning blocks)
- * - tool   -> #ff8800  (running tool calls / tool-call blocks)
- * - output -> #4488ff  (text blocks)
+ * Sits above the composer (`conversation.input.dock`) and turns Agent activity
+ * into pixels crawling right-to-left: reasoning, tool calls and output each get
+ * their own colour, taken from the live DSH theme.
  *
- * Pixels enter at the right edge and scroll left, fading over their lifetime.
- * The scroll rate follows the `speed` setting (1 = slow ... 10 = fast).
- *
- * Feed: at 0.1.2-rc.1 the Chat target contributes the running stream
- * (`useChat` -> `legacy.partial` + `legacy.runningCalls`). When that feed is
- * unavailable the trail degrades to a session-lifecycle pulse
- * (`useSession` -> `running`).
+ * Rewritten from 240 absolutely-positioned React `<span>`s (re-rendered up to
+ * ~41×/s, each with its own `box-shadow`) into a single device-pixel-ratio
+ * scaled `<canvas>` driven by one animation frame. Pixel motion is now
+ * time-based and fractional instead of one whole 8px cell per tick, which is
+ * what made the old strip look coarse next to the rest of the UI. Nothing here
+ * re-renders React per frame: the simulation lives in a ref and the canvas is
+ * painted imperatively.
  *
  * @module dsh-ambient-ui/TrailAnimation
  */
+import { type ReactElement } from 'react';
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
-import { type TrailKind } from './trailFeed.ts';
+/** Props for the dock seat. */
 export type TrailAnimationProps = PropsRuntime<'conversation.input.dock'>;
-/** The agent-step kinds the trail renders. */
 export type { TrailKind } from './trailFeed.ts';
-/** Step-type -> pixel color mapping (per the dsh-ambient-ui spec). */
-export declare const TRAIL_COLORS: Record<TrailKind, string>;
-/** Grid geometry: 30 columns x 8 rows, 8px cells. */
-export declare const TRAIL_COLS = 30;
-export declare const TRAIL_ROWS = 8;
-export declare const TRAIL_CELL_PX = 8;
-/** One animated pixel. */
-export interface TrailPixel {
-    id: number;
-    kind: TrailKind;
-    x: number;
-    y: number;
-    life: number;
-}
 /**
- * The pixel trail strip.
- * @param props - the composed composer-dock entry props.
+ * Trail seat entry point.
+ *
+ * `useAmbientConfig` is the only hook called here; the feed hooks live in the
+ * child components so that returning `null` while hidden never changes this
+ * component's hook order.
+ * @param props - dock seat props from the host.
+ * @returns the trail, or null when the trail is switched off.
  */
-export declare function TrailAnimation(props: TrailAnimationProps): React.ReactElement | null;
+export declare function TrailAnimation(props: TrailAnimationProps): ReactElement | null;
 //# sourceMappingURL=TrailAnimation.d.ts.map

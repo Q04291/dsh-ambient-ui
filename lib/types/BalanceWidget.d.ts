@@ -1,14 +1,23 @@
 /**
- * The balance/token floating widget: a glassmorphism chip pinned to the
- * bottom-right corner of the app frame (the `shell.overlay` layer). It polls
- * the Host `/api/ambient/balance` endpoint for the DeepSeek account balance
- * and `/api/ambient/tokens` for the current session's token pressure, and
- * refreshes on a fixed cadence plus visibility changes. Clicking expands the
- * per-currency breakdown and forces a manual refresh.
+ * The balance / token chip.
+ *
+ * Sits on the composer's right seat (`conversation.input.right`) and shows the
+ * DeepSeek account balance plus the session's token usage; clicking it expands a
+ * per-currency breakdown.
+ *
+ * Glassmorphism here follows the reference recipe in `src/glassRecipe.ts`: a
+ * LOW-alpha `hsla()` tint, a bright translucent white rim and a tight soft
+ * shadow, with the real `backdrop-filter` left to work on the backdrop. The
+ * previous revision painted an OPAQUE `--dsw-alias-bg-overlay` background, so
+ * its `backdrop-filter` had nothing to blur, and it spent the `opacity` setting
+ * on container CSS `opacity`, which faded the text along with the chrome.
  *
  * @module dsh-ambient-ui/BalanceWidget
  */
+import { type ReactElement } from 'react';
 import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots';
+import type { AmbientSettings } from './config.ts';
+/** Props for the composer's right seat. */
 export type BalanceWidgetProps = PropsRuntime<'conversation.input.right'>;
 /** Balance view served by the Host `/api/ambient/balance` route. */
 export interface BalanceView {
@@ -32,8 +41,10 @@ export interface TokenView {
     error?: string;
 }
 /**
- * The bottom-right balance/token chip.
- * @param props - the composed overlay entry props.
+ * The balance/token chip.
+ * @param props - the composed composer-seat props.
  */
-export declare function BalanceWidget(props: BalanceWidgetProps): React.ReactElement | null;
+export declare function BalanceWidget(props: BalanceWidgetProps): ReactElement | null;
+/** Re-exported so the settings row can describe the same values it edits. */
+export type { AmbientSettings };
 //# sourceMappingURL=BalanceWidget.d.ts.map

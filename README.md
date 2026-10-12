@@ -11,11 +11,30 @@
 | 功能               | 位置                             | 说明                                                         |
 | ------------------ | -------------------------------- | ------------------------------------------------------------ |
 | API 余额悬浮窗     | 输入框右侧工具条（与输入框持平） | 毛玻璃卡片，实时显示账户余额 + 当前会话 token 用量           |
-| Agent 轨迹像素动画 | 输入框上方（30×8 点阵条）        | 将 Agent 执行步骤映射为流动像素：`think → #00ff88`、`tool → #ff8800`、`output → #4488ff` |
+| Agent 轨迹像素动画 | 输入框上方（30×8 点阵条）        | 用一块 canvas 把 Agent 执行步骤映射为流动像素，配色取自 DSH 主题：`think → --dsw-alias-state-success-primary`、`tool → --dsw-alias-state-warn-primary`、`output → --dsw-alias-state-business-primary`、空闲 → `--dsw-alias-label-tertiary` |
 
-两个功能均为纯 CSS 实现（CSS Modules），跟随 DSH 明暗主题（通过 `--dsw-alias-*` token），无额外运行时依赖（仅需官方 Harness 包 + React）。
+两个功能都跟随 DSH 明暗主题（读 `body[data-ds-dark-theme]` + `--dsw-alias-*` token），无额外运行时依赖（仅需官方 Harness 包 + React）。毛玻璃由 CSS Modules 与一张注入的全局样式表实现，配方（底色浓度、白色描边、阴影、模糊半径）集中在 `src/glassRecipe.ts`；像素轨迹是一块按设备像素比缩放的 `<canvas>`，由 `src/trailSim.ts` 的纯函数推进。
 
-> 插件 ID：`dsh-ambient-ui` · 当前版本：`1.3.0`（已适配 DSH 0.2.0-rc.2；仍用 DSH 0.1.2-rc.1 运行时请留在 `1.2.0`）
+### 毛玻璃配方
+
+`.balanceCard` / 弹窗 / 菜单的毛玻璃按同一套配方生成，与 [toolg.cn 的 CSS 毛玻璃生成器](https://www.toolg.cn/toolbox/css_mao.html)保持一致：
+
+| 要素     | 取值                                                                             |
+| -------- | -------------------------------------------------------------------------------- |
+| 底色     | 浅色 `hsla(0, 0%, 100%, 5%–42%)`、深色 `hsla(0, 0%, 35%, 5%–42%)`（低浓度才透出背景） |
+| 描边     | `1px solid #ffffff2e` 一类的亮色半透明描边，是"玻璃感"的主要来源                 |
+| 阴影     | 收紧的柔和投影 + `inset 0 1px 0` 顶边高光，而不是大范围深色阴影                   |
+| 模糊     | 纯 `blur(Npx)`，**不叠加 `saturate()`**（与参考实现一致）                         |
+| 圆角     | `12px`                                                                            |
+| 不支持时 | `backdrop-filter` 不可用则把底色推到 94% 不透，保证文字可读                       |
+
+### 像素轨迹
+
+- 一块 240×64 的 canvas，精灵图（发光光晕）在主题变化时烘焙一次，逐帧只做 `drawImage`。
+- 时间驱动的小数位移 + `requestAnimationFrame`；`prefers-reduced-motion` 下只画一帧静态点阵。
+- 轨迹密度与 `speed` 解耦：像素按"新增了几块内容"生成，单帧最多 6 个，避免突发流量糊成一片。
+
+> 插件 ID：`dsh-ambient-ui` · 当前版本：`1.3.1`（毛玻璃配方与像素轨迹重做；已适配 DSH 0.2.0-rc.2；仍用 DSH 0.1.2-rc.1 运行时请留在 `1.2.0`）
 
 ## 环境要求
 
@@ -70,15 +89,14 @@ dsh plugin --profile web add link:<绝对路径>/dsh-ambient-ui
 
 进入 **设置（⚙️）→ General → Ambient UI**，所有改动即时生效：
 
-| 字段        | 类型 | 范围      | 默认值 | 说明                                                 |
-| ----------- | ---- | --------- | ------ | ---------------------------------------------------- |
-| opacity     | 滑块 | 0.3 – 1.0 | 0.85   | 悬浮窗整体透明度                                     |
-| blur        | 滑块 | 0 – 30 px | 12     | 毛玻璃模糊强度                                       |
-| speed       | 滑块 | 1 – 10    | 5      | 像素轨迹滚动速度                                     |
-| showBalance | 开关 | —         | on     | 是否显示余额悬浮窗                                   |
-| showTrail   | 开关 | —         | on     | 是否显示像素轨迹                                     |
-| glass       | 开关 | —         | on     | 全局弹窗毛玻璃效果（设置面板 / Modal / 菜单 / 提示） |
-
+| 字段        | 类型 | 范围      | 默认值 | 说明                                                     |
+| ----------- | ---- | --------- | ------ | -------------------------------------------------------- |
+| opacity     | 滑块 | 0.3 – 1.0 | 0.85   | 玻璃浓度：映射到底色 5% – 42% 的透明度（不是整体 `opacity`，文字始终清晰） |
+| blur        | 滑块 | 0 – 30 px | 12     | 毛玻璃模糊半径（0 = 关闭模糊，底色自动转为接近不透明）    |
+| speed       | 滑块 | 1 – 10    | 5      | 像素轨迹滚动速度                                         |
+| showBalance | 开关 | —         | on     | 是否显示余额悬浮窗                                       |
+| showTrail   | 开关 | —         | on     | 是否显示像素轨迹                                         |
+| glass       | 开关 | —         | on     | 全局弹窗毛玻璃效果（设置面板 / Modal / 菜单 / 提示）     |
 ## 常见问题
 
 ### 余额显示"不可用"
@@ -136,16 +154,19 @@ src/
 ├── routes.ts                 # API 路由：/balance, /balance/refresh, /tokens
 ├── AmbientRow.tsx            # 设置面板中的 Ambient UI 配置行
 ├── BalanceWidget.tsx         # 毛玻璃余额 / 用量悬浮窗组件
-├── TrailAnimation.tsx        # 30×8 像素轨迹动画组件
+├── TrailAnimation.tsx        # 轨迹 canvas 组件（精灵图 + rAF，无 DOM 逻辑）
 ├── trailFeed.ts              # 轨迹数据映射的纯函数（可单测）
-├── styles.module.css         # 纯 CSS 样式（CSS Modules，跟随主题）
+├── trailSim.ts               # 像素模拟纯函数：生成/位移/寿命/调色（可单测）
+├── glassRecipe.ts            # 毛玻璃配方纯函数：浓度/描边/阴影/模糊 + 特性探测
+├── styles.module.css         # CSS Modules：布局与主题 token（配方变量由 JS 注入）
 └── client/
     ├── index.ts              # Client 侧：取 ambient 表单（configForms）+ 注册三个插槽
     ├── ambientConfigStore.ts # 配置共享 store（由原生设置表单驱动，无轮询）
     ├── feed.ts               # rc.1 会话标准 props 的轻量类型声明
-    ├── glass.ts              # 全局弹窗毛玻璃（mask token 覆盖）
+    ├── glass.ts              # 全局毛玻璃：写 body 上的 DSH token + 注入样式表
+    ├── theme.ts              # 主题读取（body[data-ds-dark-theme]）与订阅
     └── useAmbientConfig.ts   # 配置消费 Hook
-tests/                        # vitest 测试（config / store / client / trailFeed / service / routes）
+tests/                        # vitest 测试（config / store / client / trailFeed / trailSim / glassRecipe / service / routes）
 shared/                       # 官方 DSH client bundle 构建预设（MIT）
 cordis.patch.yml              # bundle patch（dsh plugin 安装用）
 ```

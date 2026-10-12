@@ -1,35 +1,78 @@
-/* dsh-ambient-ui styles (pure CSS, CSS Modules).
+/*
+ * dsh-ambient-ui surfaces.
  *
- * Theme adaptation: colors ride DSH's alias tokens (--dsw-alias-*) so they
- * follow the harness light/dark theme and brand overrides automatically;
- * the var() fallbacks keep the widget readable when a token is absent.
- * The blur/opacity values are injected inline from settings so the user can
- * tune them from the Settings panel without a stylesheet rebuild.
+ * The glass recipe itself lives in `src/glassRecipe.ts` and arrives as the
+ * `--ambient-glass-*` custom properties on the widget's style attribute, so the
+ * settings sliders never rebuild a stylesheet. This file owns layout, typography
+ * and the fallback values used when the variables are absent.
+ *
+ * Every colour here is a real DSH alias token. The previous revision referenced
+ * `--dsw-alias-danger`, `--dsw-alias-success`, `--dsw-alias-accent` and
+ * `--dsw-alias-border-warn`, none of which exist in the theme, so those rules
+ * silently fell back to whatever the browser inherited.
  */
 
+/* ---------------------------------------------------------------- balance -- */
+
 .balanceWidget {
-  /* Inside the composer tool row: inline, level with the input box. */
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 4px;
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--dsw-alias-label-primary);
+  /* Fallbacks mirror glassRecipe()'s light-theme defaults, so the widget still
+     looks right if the host never renders the inline variables. */
+  --ambient-glass-fill: hsla(0, 0%, 100%, 0.34);
+  --ambient-glass-rim: rgba(255, 255, 255, 0.55);
+  --ambient-glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 0 0 0.5px rgba(15, 17, 21, 0.06),
+    0 6px 15px 0 rgba(142, 142, 142, 0.19);
+  --ambient-glass-blur: blur(12px);
+  --ambient-glass-radius: 12px;
+}
+
+.balanceCard,
+.balanceDetails {
+  background: var(--ambient-glass-fill);
+  border: 1px solid var(--ambient-glass-rim);
+  border-radius: var(--ambient-glass-radius);
+  box-shadow: var(--ambient-glass-shadow);
+  /* Real backdrop blur: an opaque background here is what previously made the
+     inline `backdrop-filter` a no-op with nothing to blur.
+     The unprefixed property is declared ALONE, on purpose: DSH's own client
+     bundle declares `backdrop-filter` 52 times and `-webkit-backdrop-filter`
+     zero times, so the alias buys no coverage here; and `shared/tsdown.client.ts`
+     passes lightningcss no browser targets, which folds a prefixed/unprefixed
+     pair into whichever spelling came last — emitting the alias alone and
+     leaving Firefox with no blur at all. */
+  backdrop-filter: var(--ambient-glass-blur);
 }
 
 .balanceCard {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  max-width: 100%;
   padding: 6px 10px;
-  border: 1px solid var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.28));
-  border-radius: 16px;
-  background: var(--dsw-alias-bg-overlay, rgba(255, 255, 255, 0.62));
-  color: var(--dsw-alias-label-primary, #1c1e26);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16);
-  font-size: 13px;
-  line-height: 1;
+  white-space: nowrap;
+  font: inherit;
+  color: inherit;
   cursor: pointer;
-  user-select: none;
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.balanceCard:hover {
+  border-color: var(--dsw-alias-border-l2);
+}
+
+.balanceCard:focus-visible {
+  outline: 2px solid var(--dsw-alias-state-business-primary);
+  outline-offset: 2px;
 }
 
 .balanceText {
@@ -39,45 +82,46 @@
 
 .tokenText {
   font-variant-numeric: tabular-nums;
-  color: var(--dsw-alias-label-secondary, #565c6a);
+  color: var(--dsw-alias-label-secondary);
 }
 
 .sep {
-  width: 1px;
-  height: 12px;
-  background: var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.3));
+  color: var(--dsw-alias-border-l3);
 }
 
-.dot,
-.dotOk {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex: none;
+.dim {
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .dot {
-  background: var(--dsw-alias-danger, #e5484d);
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--dsw-alias-state-warn-primary);
 }
 
 .dotOk {
-  background: var(--dsw-alias-success, #30a46c);
-  box-shadow: 0 0 6px rgba(48, 164, 108, 0.7);
+  background: var(--dsw-alias-state-success-primary);
 }
 
+.dotError {
+  background: var(--dsw-alias-state-error-primary);
+}
+
+/* The detail panel used to be an in-flow sibling of the chip, so expanding it
+   pushed the composer's tool row around. It is now anchored above the chip. */
 .balanceDetails {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 40;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   min-width: 200px;
-  padding: 10px 12px;
-  border: 1px solid var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.25));
-  border-radius: 12px;
-  background: var(--dsw-alias-bg-overlay, rgba(255, 255, 255, 0.72));
-  color: var(--dsw-alias-label-primary, #1c1e26);
-  font-size: 12px;
-  line-height: 1.5;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16);
+  padding: 8px 10px;
+  animation: ambientRise 120ms ease-out;
 }
 
 .detailRow {
@@ -88,75 +132,56 @@
 }
 
 .rowRight {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
   font-variant-numeric: tabular-nums;
 }
 
-.dim {
-  opacity: 0.55;
+/* Screen-reader-only live region: the status text must not be inside the
+   interactive button, but it still has to be announced. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
-/* ---- pixel trail ---- */
+@keyframes ambientRise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------------------------ trail -- */
 
 .trail {
   display: flex;
   justify-content: center;
   width: 100%;
   padding: 4px 0 2px;
+  /* Decorative: never intercept clicks meant for the composer. */
+  pointer-events: none;
 }
 
-.trailGrid {
-  position: relative;
+.trailCanvas {
+  display: block;
 }
 
-.cell {
-  position: absolute;
-  border-radius: 2px;
-}
-
-.cellThink {
-  background: #00ff88;
-  box-shadow: 0 0 6px rgba(0, 255, 136, 0.75);
-}
-
-.cellTool {
-  background: #ff8800;
-  box-shadow: 0 0 6px rgba(255, 136, 0, 0.75);
-}
-
-.cellOutput {
-  background: #4488ff;
-  box-shadow: 0 0 6px rgba(68, 136, 255, 0.75);
-}
-
-.cellIdle {
-  background: #8c96aa;
-  box-shadow: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  .balanceCard,
-  .balanceDetails {
-    background: var(--dsw-alias-bg-overlay, rgba(23, 25, 31, 0.66));
-    color: var(--dsw-alias-label-primary, #f5f7fb);
-  }
-
-  .tokenText {
-    color: var(--dsw-alias-label-secondary, #949aa8);
-  }
-}
-
-
-/* ---- settings row (General section) ---- */
+/* --------------------------------------------------------------- settings -- */
 
 .settingsRow {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.18));
+  padding: 4px 0;
 }
 
 .settingsHeader {
@@ -166,14 +191,13 @@
 }
 
 .settingsTitle {
-  font-size: 14px;
   font-weight: 600;
-  color: var(--dsw-alias-label-primary, #1c1e26);
+  color: var(--dsw-alias-label-primary);
 }
 
 .settingsDesc {
   font-size: 12px;
-  color: var(--dsw-alias-label-secondary, #565c6a);
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .settingsFields {
@@ -184,46 +208,46 @@
 
 .field {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--dsw-alias-label-primary, #1c1e26);
-}
-
-.fieldLabel {
-  display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
+.fieldLabel {
+  color: var(--dsw-alias-label-secondary);
+}
+
 .fieldValue {
+  min-width: 48px;
+  text-align: right;
   font-variant-numeric: tabular-nums;
-  color: var(--dsw-alias-label-secondary, #565c6a);
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .slider {
-  accent-color: var(--dsw-alias-accent, #4f8cff);
-  width: 100%;
+  flex: 1;
+  max-width: 200px;
+  accent-color: var(--dsw-alias-state-business-primary);
 }
 
 .toggle {
-  accent-color: var(--dsw-alias-accent, #4f8cff);
-  width: 16px;
-  height: 16px;
+  accent-color: var(--dsw-alias-state-business-primary);
 }
 
 .settingsPending {
-  font-size: 12px;
-  color: var(--dsw-alias-label-secondary, #565c6a);
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .settingsWarn {
-  padding: 8px 10px;
-  border: 1px solid var(--dsw-alias-border-warn, rgba(229, 72, 77, 0.4));
-  border-radius: 8px;
-  background: rgba(229, 72, 77, 0.08);
-  color: var(--dsw-alias-danger, #e5484d);
-  font-size: 12px;
-  line-height: 1.5;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .balanceCard {
+    transition: none;
+  }
+
+  .balanceDetails {
+    animation: none;
+  }
 }

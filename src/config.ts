@@ -11,9 +11,15 @@
 
 /** User-facing ambient settings, edited in the Harness Settings panel. */
 export interface AmbientSettings {
-  /** Floating-widget opacity, 0.3 (ghost) – 1.0 (solid). */
+  /**
+   * Glass tint density, 0.3 (nearly clear) – 1.0 (dense).
+   *
+   * Not CSS `opacity`: the widget is always fully opaque, and this only sets how
+   * much tint the glass carries (`glassTintAlpha` maps it onto [0.05, 0.42]).
+   * Applying it as container `opacity` faded the text along with the chrome.
+   */
   opacity: number
-  /** Glassmorphism blur radius in px, 0 (crisp) – 30 (frosted). */
+  /** Glassmorphism blur radius in px, 0 (crisp) – 30 (frosted); also drives DSH's own popup frost. */
   blur: number
   /** Trail animation speed, 1 (slow) – 10 (fast). */
   speed: number
@@ -53,7 +59,7 @@ export interface LiveSetting<T> {
  * composition-layer values.
  */
 export interface AmbientRuntimeConfig {
-  /** Live floating-widget opacity. */
+  /** Live glass tint density. */
   opacity?: LiveSetting<number>
   /** Live glassmorphism blur radius. */
   blur?: LiveSetting<number>

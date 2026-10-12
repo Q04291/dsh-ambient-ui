@@ -41,6 +41,8 @@ export { AMBIENT_API_PREFIX, makeAmbientRoutes } from './routes.ts'
  * ordinary, so they remain composition-layer configuration.
  */
 export const Config = z.object({
+  // Tint density, NOT CSS opacity: 0.3 is nearly clear glass, 1.0 is dense but
+  // still translucent (see glassTintAlpha).
   opacity: z.number().min(0.3).max(1).default(AMBIENT_DEFAULTS.opacity).volatile(),
   blur: z.number().min(0).max(30).default(AMBIENT_DEFAULTS.blur).volatile(),
   speed: z.number().min(1).max(10).default(AMBIENT_DEFAULTS.speed).volatile(),
