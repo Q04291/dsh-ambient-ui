@@ -3,12 +3,19 @@
  *
  * Two mechanisms, deliberately different:
  *
- * 1. **Token steering.** DSH declares `--dsw-mask-blur` (modal scrims) and
- *    `--dsw-menu-backdrop-filter` (menus) on `body`, and its stylesheets consume
- *    them. Overriding those tokens on `body` upgrades every DSH surface at once
- *    instead of fighting it with a weaker `[role="menu"]` override — the previous
- *    revision replaced DSH's built-in `blur(40px)` menu frost with `blur(12px)`
- *    while leaving the panel 85% opaque, which is strictly worse on both counts.
+ * 1. **Token steering.** DSH declares `--dsw-mask-blur` (modal scrims, `none` by
+ *    default) and `--dsw-menu-backdrop-filter` (menus) on `body`, and its own
+ *    stylesheets consume them. Overriding those tokens on `body` upgrades every
+ *    DSH surface at once instead of fighting it with a weaker `[role="menu"]`
+ *    override — the previous revision replaced DSH's built-in `blur(40px)` menu
+ *    frost with `blur(12px)` while leaving the panel 85% opaque, which is
+ *    strictly worse on both counts.
+ *
+ *    The scrim's *veil* (`--dsw-alias-bg-mask-1`) is deliberately left alone.
+ *    `withAlpha()` scales a colour that already carries an alpha, so multiplying
+ *    DSH's `#0000003d` (0.24) by a density factor produced a 0.06 scrim — three
+ *    times *lighter* than DSH's own — and native dialogs ended up floating over
+ *    an undimmed page.
  *
  * 2. **One injected stylesheet** for the surfaces DSH has no token for
  *    (`[role="dialog"][aria-modal="true"]`, `[data-menu-material]`,

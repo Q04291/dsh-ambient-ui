@@ -18,16 +18,13 @@
  * translucent white rim, a tight soft shadow rather than a heavy drop shadow,
  * and a plain `blur()` with no `saturate()`.
  *
- * Three deliberate departures, each required by DSH's own surfaces:
+ * Two deliberate departures, each required by DSH's own surfaces:
  *
  * 1. The reference demo sits on a saturated gradient, where a 25% tint already
  *    reads as glass. DSH's composer sits on a near-white or near-black neutral,
  *    so each surface adds a 1px translucent white rim plus a half-pixel inset
  *    hairline — without them the card edge disappears into the backdrop.
- * 2. The reference omits a colour-matched shadow for dark mode; on DSH's dark
- *    surfaces a 19%-black shadow is invisible, so the dark drop shadow is
- *    deepened to 28%.
- * 3. When the browser has no `backdrop-filter` the tint is forced near-opaque,
+ * 2. When the browser has no `backdrop-filter` the tint is forced near-opaque,
  *    so the widget stays legible instead of becoming a transparent smear.
  *
  * ## The `opacity` setting
@@ -37,6 +34,21 @@
  * reference's `--opacity` band `[GLASS_TINT_MIN, GLASS_TINT_MAX]` = [0.05,
  * 0.42]. At the default 0.85 the card is 34% tinted; at 0.3 it is 5% tinted
  * (nearly clear glass); at 1.0 it is 42% tinted (still clearly translucent).
+ * 0.68 reproduces the reference generator's own default of 25%.
+ *
+ * ## One tint, three surfaces
+ *
+ * The balance card, its detail popover and DSH's own modal dialogs all read
+ * {@link glassTintAlpha}. A denser "panel band" for the dialogs was tried and
+ * removed: DSH paints `.dialog` with the *opaque* `--dsw-alias-bg-layer-2` and
+ * leaves its scrim at `--dsw-mask-blur: none`, so the plugin is the only source
+ * of glass there, and a second band only put the popups out of step with the
+ * card — at the default it left the dialogs 62%–92% opaque, i.e. visually solid.
+ *
+ * DSH's menus are deliberately NOT re-coloured. `--dsw-menu-surface-fill` is
+ * already `#f8f9fa94` (light) / `#43454a73` (dark) under `blur(40px)`, which is
+ * the reference recipe with a stronger blur; mixing it again only risked making
+ * the menus *more* opaque than DSH ships them.
  *
  * @module dsh-ambient-ui/glassRecipe
  */
@@ -56,16 +68,6 @@ export declare const GLASS_RADIUS_PX = 12;
  * @returns the tint alpha to hand to `hsla()`, within [0.05, 0.42].
  */
 export declare function glassTintAlpha(opacity: number): number;
-/**
- * Tint alpha for a large translucent panel (modal / menu / settings page).
- *
- * Panels carry body text over whatever is behind them, so they ride the same
- * density knob at a much higher floor: legible at every setting, still visibly
- * translucent at the top of the range.
- * @param opacity - the `opacity` setting.
- * @returns panel alpha within [0.62, 0.92].
- */
-export declare function glassPanelAlpha(opacity: number): number;
 /**
  * The `backdrop-filter` value for a blur radius.
  * @param blur - blur radius in px; 0 or less means no blurring.

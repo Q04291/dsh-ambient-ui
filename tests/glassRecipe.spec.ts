@@ -6,7 +6,6 @@ import {
   GLASS_TINT_MIN,
   backdropFilterSupported,
   glassBlurFilter,
-  glassPanelAlpha,
   glassTintAlpha,
   glassVars,
   withAlpha,
@@ -24,11 +23,12 @@ describe('glass tint density', () => {
     expect(glassTintAlpha(9)).toBe(GLASS_TINT_MAX)
   })
 
-  it('keeps panels legible at every density', () => {
-    expect(glassPanelAlpha(GLASS_OPACITY_MIN)).toBeCloseTo(0.655, 3)
-    expect(glassPanelAlpha(GLASS_OPACITY_MAX)).toBeCloseTo(0.914, 3)
-    expect(glassPanelAlpha(0)).toBeGreaterThanOrEqual(0.62)
-    expect(glassPanelAlpha(2)).toBeLessThanOrEqual(0.92)
+  it('keeps one tint band for every surface, dialogs included', () => {
+    // Cards, the detail popover and DSH's dialogs all read glassTintAlpha, so
+    // the reference band is the only density the plugin can produce.
+    expect(glassTintAlpha(GLASS_OPACITY_MIN)).toBeGreaterThanOrEqual(GLASS_TINT_MIN)
+    expect(glassTintAlpha(GLASS_OPACITY_MAX)).toBeLessThanOrEqual(GLASS_TINT_MAX)
+    expect(glassTintAlpha(0.68)).toBeCloseTo(0.251, 3)
   })
 })
 

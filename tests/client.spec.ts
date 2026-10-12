@@ -150,11 +150,14 @@ describe('ambient client plugin', () => {
 
     const written = dom.bodyStyle.setProperty.mock.calls.map((call) => call[0])
     expect(written).toContain('--dsw-mask-blur')
-    expect(written).toContain('--ambient-glass-panel')
+    expect(written).toContain('--ambient-glass-fill')
     expect(dom.bodyStyle.setProperty).toHaveBeenCalledWith('--dsw-mask-blur', 'blur(16px)')
     // Writing to documentElement is the bug this test pins: DSH re-declares the
     // tokens it owns on body, so a root-level override is always overridden.
     expect(dom.rootStyle.setProperty).not.toHaveBeenCalled()
     expect(dom.created[0]?.textContent).toContain('[role="dialog"][aria-modal="true"]')
+    // DSH's own menu fill is already translucent; re-mixing it made menus *more*
+    // opaque than DSH ships them, so the injected sheet must not touch it.
+    expect(dom.created[0]?.textContent).not.toContain('--dsw-specific-menu')
   })
 })

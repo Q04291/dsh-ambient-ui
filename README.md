@@ -1,6 +1,6 @@
 # dsh-ambient-ui
 
-> Ambient UI components for [DeepSeek Harness   DeepSeek利用](https://github.com/deepseek-ai/deepseek-harness) (DSH) Web — 为 DSH 界面添加毛玻璃余额悬浮窗与 Agent 轨迹像素动画。
+> Ambient UI components for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) Web — 为 DSH 界面添加毛玻璃余额悬浮窗与 Agent 轨迹像素动画。
 
 | 毛玻璃余额悬浮窗                                 | Agent 轨迹像素动画                              |
 | ------------------------------------------------ | ----------------------------------------------- |
@@ -12,9 +12,11 @@
 | ------------------ | -------------------------------- | ------------------------------------------------------------ |
 | API 余额悬浮窗     | 输入框右侧工具条（与输入框持平） | 毛玻璃卡片，实时显示账户余额 + 当前会话 token 用量           |
 | Agent 轨迹像素动画 | 输入框上方（30×8 点阵条）        | 用一块 canvas 把 Agent 执行步骤映射为流动像素，配色取自 DSH 主题：`think → --dsw-alias-state-success-primary`、`tool → --dsw-alias-state-warn-primary`、`output → --dsw-alias-state-business-primary`、空闲 → `--dsw-alias-label-tertiary` |
+| DSH 原生弹窗毛玻璃 | 设置 / 模型选择 / 确认框         | 覆盖 DSH 自己的不透明弹窗底色（`--dsw-alias-bg-layer-2`）与 `none` 遮罩模糊，让原生弹窗与悬浮窗用同一份玻璃底色 |
 
 两个功能都跟随 DSH 明暗主题（读 `body[data-ds-dark-theme]` + `--dsw-alias-*` token），无额外运行时依赖（仅需官方 Harness 包 + React）。毛玻璃由 CSS Modules 与一张注入的全局样式表实现，配方（底色浓度、白色描边、阴影、模糊半径）集中在 `src/glassRecipe.ts`；像素轨迹是一块按设备像素比缩放的 `<canvas>`，由 `src/trailSim.ts` 的纯函数推进。
 
+### 毛玻璃配方
 
 | 要素     | 取值                                                                             |
 | -------- | -------------------------------------------------------------------------------- |
@@ -25,13 +27,24 @@
 | 圆角     | `12px`                                                                            |
 | 不支持时 | `backdrop-filter` 不可用则把底色推到 94% 不透，保证文字可读                       |
 
+作用面（三种表面共用同一份底色浓度，不会各自漂移）：
+
+- **DSH 原生弹窗**（`[role="dialog"][aria-modal="true"]`，即设置 / 模型选择 / 确认框）：DSH 用不透明
+  的 `--dsw-alias-bg-layer-2` 画面板、遮罩的 `--dsw-mask-blur` 是 `none`，所以插件把面板底色换成玻璃
+  底色，并把 `--dsw-mask-blur` 指向 `blur` 滑块——遮罩和弹窗一起变成毛玻璃，而不是只有一层灰。
+  圆角仍用 DSH 自己的 `--dsw-radius-panel`（28px），不改原生几何。
+- **菜单**（`[data-menu-material]`）不重新上色：DSH 自己就是 `--dsw-menu-surface-fill`（浅色 58% /
+  深色 45%）+ `blur(40px)`，已经是参考配方；插件只把模糊交给滑块并补一圈亮边，避免把菜单做得比原生更不透明。
+- **遮罩浓度**（`--dsw-alias-bg-mask-1`）保持 DSH 原值不动：`withAlpha()` 是按比例缩放已有的 alpha，
+  缩放后浅色主题只剩 0.06（DSH 自己是 0.24），弹窗会浮在没压暗的页面上。
+
 ### 像素轨迹
 
 - 一块 240×64 的 canvas，精灵图（发光光晕）在主题变化时烘焙一次，逐帧只做 `drawImage`。
 - 时间驱动的小数位移 + `requestAnimationFrame`；`prefers-reduced-motion` 下只画一帧静态点阵。
 - 轨迹密度与 `speed` 解耦：像素按"新增了几块内容"生成，单帧最多 6 个，避免突发流量糊成一片。
 
-> 插件 ID：`dsh-ambient-ui` · 当前版本：`1.3.1`（毛玻璃配方与像素轨迹重做；已适配 DSH 0.2.0-rc.2；仍用 DSH 0.1.2-rc.1 运行时请留在 `1.2.0`）
+> 插件 ID：`dsh-ambient-ui` · 当前版本：`1.3.2`（DSH 原生弹窗改用同一份玻璃底色；已适配 DSH 0.2.0-rc.2；仍用 DSH 0.1.2-rc.1 运行时请留在 `1.2.0`）
 
 ## 环境要求
 
@@ -93,7 +106,7 @@ dsh plugin --profile web add link:<绝对路径>/dsh-ambient-ui
 | speed       | 滑块 | 1 – 10    | 5      | 像素轨迹滚动速度                                         |
 | showBalance | 开关 | —         | on     | 是否显示余额悬浮窗                                       |
 | showTrail   | 开关 | —         | on     | 是否显示像素轨迹                                         |
-| glass       | 开关 | —         | on     | 全局弹窗毛玻璃效果（设置面板 / Modal / 菜单 / 提示）     |
+| glass       | 开关 | —         | on     | 全局毛玻璃：原生弹窗（设置 / 模型选择 / 确认框）用同一份玻璃底色，菜单与提示按要求只调模糊 + 描边 |
 ## 常见问题
 
 ### 余额显示"不可用"
