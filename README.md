@@ -1,6 +1,6 @@
 # dsh-ambient-ui
 
-> Ambient UI components for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) Web — 为 DSH 界面添加毛玻璃余额悬浮窗与 Agent 轨迹像素动画。
+> Ambient UI components for [DeepSeek Harness   DeepSeek利用](https://github.com/deepseek-ai/deepseek-harness) (DSH) Web — 为 DSH 界面添加毛玻璃余额悬浮窗与 Agent 轨迹像素动画。
 
 | 毛玻璃余额悬浮窗                                 | Agent 轨迹像素动画                              |
 | ------------------------------------------------ | ----------------------------------------------- |
@@ -15,9 +15,6 @@
 
 两个功能都跟随 DSH 明暗主题（读 `body[data-ds-dark-theme]` + `--dsw-alias-*` token），无额外运行时依赖（仅需官方 Harness 包 + React）。毛玻璃由 CSS Modules 与一张注入的全局样式表实现，配方（底色浓度、白色描边、阴影、模糊半径）集中在 `src/glassRecipe.ts`；像素轨迹是一块按设备像素比缩放的 `<canvas>`，由 `src/trailSim.ts` 的纯函数推进。
 
-### 毛玻璃配方
-
-`.balanceCard` / 弹窗 / 菜单的毛玻璃按同一套配方生成，与 [toolg.cn 的 CSS 毛玻璃生成器](https://www.toolg.cn/toolbox/css_mao.html)保持一致：
 
 | 要素     | 取值                                                                             |
 | -------- | -------------------------------------------------------------------------------- |
